@@ -7,7 +7,6 @@ Goals
 3. Create custom programming language to target CHIP-8
 4. Create something! (A game?)
 
-
 ## Tutorial
 https://multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
 https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
