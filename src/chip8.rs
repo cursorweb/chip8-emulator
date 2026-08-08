@@ -1,3 +1,4 @@
+use rand::prelude::*;
 use std::fs;
 
 pub const WIDTH: usize = 64;
@@ -35,8 +36,13 @@ pub struct Chip8 {
     /// stack pointer 'u16'
     /// Essentially it's the length, where the *next* item will be stored
     sp: usize,
-    /// store key(s) being pressed
-    key: [u8; 16],
+    /// store key(s) being pressed 'u8'
+    key: [bool; 16],
+    /// Whether or not 8XY6 and 8XYE uses VY
+    shift_y: bool,
+    /// Whether or not to treat jump with offset as BNNN or BXNN
+    jump_bxnn: bool,
+    rng: ThreadRng,
 }
 
 impl Chip8 {
@@ -51,7 +57,10 @@ impl Chip8 {
             sound_timer: 0,
             stack: [0; 16],
             sp: 0,
-            key: [0; 16],
+            key: [false; 16],
+            shift_y: false,
+            jump_bxnn: false,
+            rng: rand::rng(),
         }
     }
 
@@ -61,9 +70,35 @@ impl Chip8 {
         if bytes.len() > self.memory.len() - 0x200 {
             panic!("ROM too large!");
         }
+        self.load_font();
         for byte in bytes {
             self.memory[i] = byte;
             i += 1;
+        }
+    }
+
+    fn load_font(&mut self) {
+        let font = [
+            0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+            0x20, 0x60, 0x20, 0x20, 0x70, // 1
+            0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+            0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+            0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+            0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+            0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+            0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+            0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+            0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+            0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+            0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+            0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+            0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+            0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+            0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+        ];
+
+        for i in 0x050..=0x09F {
+            self.memory[i] = font[i - 0x050];
         }
     }
 
@@ -109,35 +144,156 @@ impl Chip8 {
                 self.sp += 1;
                 self.pc = address as usize;
             }
+            0x3000 => {
+                // Skip (3XNN) if V[X] == NN
+                let x = self.x(opcode);
+                let nn = self.nn(opcode);
+                let vx = self.v[x];
+                if vx == nn {
+                    self.pc += 2; // skip 2 bytes
+                }
+            }
+            0x4000 => {
+                // Skip (4XNN) if V[X] != NN
+                let x = self.x(opcode);
+                let nn = self.nn(opcode);
+                let vx = self.v[x];
+                if vx != nn {
+                    self.pc += 2;
+                }
+            }
+            0x5000 => {
+                // Skip (5XY0) if V[X] == V[Y]
+                let (x, y) = self.xy(opcode);
+                if self.v[x] == self.v[y] {
+                    self.pc += 2;
+                }
+            }
             0x6000 => {
                 // Set (6XNN)
                 let x = self.x(opcode);
                 let nn = self.nn(opcode);
-                self.v[x as usize] = nn;
+                self.v[x] = nn;
             }
             0x7000 => {
                 // Add (7XNN)
                 let x = self.x(opcode);
                 let nn = self.nn(opcode);
-                self.v[x] = self.v[x as usize].wrapping_add(nn);
+                self.v[x] = self.v[x].wrapping_add(nn);
+            }
+            0x8000 => {
+                let op = opcode & 0x000F;
+                match op {
+                    0x0 => {
+                        // Set (8XY0) V[X] = V[Y]
+                        let (x, y) = self.xy(opcode);
+                        self.v[x] = self.v[y];
+                    }
+                    0x1 => {
+                        // OR (8XY1) V[X] = V[X] | V[Y]
+                        let (x, y) = self.xy(opcode);
+                        self.v[x] = self.v[x] | self.v[y];
+                    }
+                    0x2 => {
+                        // AND (8XY2) V[X] = V[X] & V[Y]
+                        let (x, y) = self.xy(opcode);
+                        self.v[x] = self.v[x] & self.v[y];
+                    }
+                    0x3 => {
+                        // XOR (8XY3) V[X] = V[X] ^ V[Y]
+                        let (x, y) = self.xy(opcode);
+                        self.v[x] = self.v[x] ^ self.v[y];
+                    }
+                    0x4 => {
+                        // ADD (8XY4) V[X] = V[X] + V[Y]
+                        let (x, y) = self.xy(opcode);
+                        let (result, carry) = self.v[x].overflowing_add(self.v[y]);
+                        self.v[x] = result;
+                        self.v[0xF] = carry as u8;
+                    }
+                    0x5 => {
+                        // SUB (8XY5) V[X] = V[X] - V[Y]
+                        // if VX >= VY, VF = 1 (no borrow)
+                        // if VX < VY, VF = 0 (opposite of what overflow is! -- underflow)
+                        let (x, y) = self.xy(opcode);
+                        let (result, borrow) = self.v[x].overflowing_sub(self.v[y]);
+                        self.v[x] = result;
+                        self.v[0xF] = !borrow as u8;
+                    }
+                    0x6 => {
+                        // SHIFT (8XY6) V[X] >>= 1
+                        let (x, y) = self.xy(opcode);
+                        if self.shift_y {
+                            self.v[x] = self.v[y];
+                        }
+                        self.v[0xF] = (self.v[x] & 1 == 1) as u8;
+                        self.v[x] >>= 1;
+                    }
+                    0x7 => {
+                        // SUB (8XY7) V[X] = V[Y] - V[X]
+                        let (x, y) = self.xy(opcode);
+                        let (result, borrow) = self.v[y].overflowing_sub(self.v[x]);
+                        self.v[x] = result;
+                        self.v[0xF] = !borrow as u8;
+                    }
+                    0xE => {
+                        // SHIFT (8XYE) V[X] <<= 1
+                        let (x, y) = self.xy(opcode);
+                        if self.shift_y {
+                            self.v[x] = self.v[y];
+                        }
+                        // VX & 0x80 is either 0x80 or 0x00 (0x8 is 1000)
+                        self.v[0xF] = (self.v[x] & 0x80 != 0) as u8;
+                        self.v[x] <<= 1;
+                    }
+                    _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
+                }
+            }
+            0x9000 => {
+                // Skip (9XY0) if V[X] != V[Y]
+                let x = self.x(opcode);
+                let y = self.y(opcode);
+                if self.v[x] != self.v[y] {
+                    self.pc += 2;
+                }
             }
             0xA000 => {
                 // Set Index (ANNN)
                 let nnn = self.nnn(opcode);
                 self.i = nnn;
             }
+            0xB000 => {
+                // Jump with offset (BNNN)
+                // Jump NNN + V0
+                if self.jump_bxnn {
+                    let nn = self.nn(opcode);
+                    let x = self.x(opcode);
+                    self.pc = nn as usize + self.v[x] as usize;
+                } else {
+                    let nnn = self.nnn(opcode);
+                    let v0 = self.v[0];
+                    self.pc = nnn as usize + v0 as usize;
+                }
+            }
+            0xC000 => {
+                // Rand (CXNN)
+                let x = self.x(opcode);
+                let nn = self.nn(opcode);
+                let num: u8 = self.rng.random();
+                self.v[x] = num & nn;
+            }
             0xD000 => {
                 // Draw (DXYN)
                 // draws N pixels tall sprite from memory location at i
                 // at horizontal coordinate vX and vertical coordinate vY
-                // recall sprites are always 8xN
+                // recall sprites are always dimension 8 x N
                 let vx = self.x(opcode);
                 let vy = self.y(opcode);
                 let n = self.n(opcode);
 
                 let x = self.v[vx] % WIDTH as u8;
                 let y = self.v[vy] % HEIGHT as u8;
-                // note (vx % 64 == vx % 63)!
+                // note (vx % 64 == vx & 63)!
                 // works only for powers of 2, 2^n and 2^n - 1...
                 // (implicitly gets capped to 2^n so it works)
 
@@ -145,7 +301,7 @@ impl Chip8 {
                 self.v[0xF] = 0;
 
                 for dy in 0..n {
-                    if y as u16 + dy >= 32 {
+                    if y as u16 + dy >= WIDTH as u16 {
                         // clip the sprite
                         break;
                     }
@@ -164,7 +320,7 @@ impl Chip8 {
                         if pixel == true {
                             let gfx_i = (y as u16 + dy) * WIDTH as u16 + (x + dx) as u16;
 
-                            if pixel & self.gfx[gfx_i as usize] == true {
+                            if self.gfx[gfx_i as usize] {
                                 // same parity, so would switch off
                                 self.v[0xF] = 1;
                             }
@@ -174,6 +330,92 @@ impl Chip8 {
                     }
                 }
             }
+            0xE000 => {
+                let op = opcode & 0x00FF;
+                match op {
+                    0x9E => {
+                        // Skip if key pressed (EX9E)
+                        let x = self.x(opcode);
+                        let vx = self.v[x];
+                        if self.key[vx as usize] {
+                            self.pc += 2;
+                        }
+                    }
+                    0xA1 => {
+                        // Skip if key NOT pressed (EXA1)
+                        let x = self.x(opcode);
+                        let vx = self.v[x];
+                        if !self.key[vx as usize] {
+                            self.pc += 2;
+                        }
+                    }
+                    _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
+                }
+            }
+            0xF000 => {
+                let op = opcode & 0x00FF;
+                match op {
+                    0x07 => {
+                        // Set VX to delay timer (FX07)
+                        let x = self.x(opcode);
+                        self.v[x] = self.delay_timer;
+                    }
+                    0x15 => {
+                        // Set delay timer to VX (FX15)
+                        let x = self.x(opcode);
+                        self.delay_timer = self.v[x];
+                    }
+                    0x18 => {
+                        // Set sound timer to VX (FX18)
+                        let x = self.x(opcode);
+                        self.sound_timer = self.v[x];
+                    }
+                    0x1E => {
+                        // Index register += VX (FX1E)
+                        let x = self.x(opcode);
+                        self.i += self.v[x] as u16;
+                        // 0x000 - 0x0FFF is valid memory, above this is an overflow
+                        // of valid memory addresses
+                        self.v[0xF] = (self.i > 0x0FFF) as u8;
+                    }
+                    0x0A => {
+                        // Get key (0x0A)
+                        let x = self.x(opcode);
+                        for (i, &key) in self.key.iter().enumerate() {
+                            if key {
+                                self.v[x] = i as u8;
+
+                                // break from the loop
+                                self.pc += 2;
+                            }
+                        }
+
+                        // loop
+                        self.pc -= 2;
+                    }
+                    0x29 => {
+                        // Font character (FX29)
+                        let x = self.x(opcode);
+                        // only take the bottom nibble
+                        let vx = self.v[x] & 0x0F;
+                        let index = 0x050 + vx * 5;
+                        self.i = index as u16;
+                    }
+                    0x33 => {
+                        // Binary-coded decimal conversion (FX33)
+                        // eg if VX = 156, I = 1, I+1 = 5, I+2 = 6
+                        let x = self.x(opcode);
+                        let mut vx = self.v[x];
+                        for i in (0..3).rev() {
+                            let digit = vx % 10;
+                            vx /= 10;
+                            self.memory[(self.i + i) as usize] = digit;
+                        }
+                    }
+                    _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
+                }
+            }
+
             _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
         }
 
@@ -199,24 +441,34 @@ impl Chip8 {
     }
 
     // bit operations
+    /// 0x#NNN
     fn nnn(&self, opcode: u16) -> u16 {
         opcode & 0x0FFF
     }
 
+    /// 0x##NN
     fn nn(&self, opcode: u16) -> u8 {
         (opcode & 0x00FF) as u8
     }
 
+    /// 0x###N
     fn n(&self, opcode: u16) -> u16 {
         opcode & 0x000F
     }
 
+    /// 0x#X##
     fn x(&self, opcode: u16) -> usize {
         ((opcode & 0x0F00) >> 8) as usize
     }
 
+    /// 0x##Y#
     fn y(&self, opcode: u16) -> usize {
         ((opcode & 0x00F0) >> 4) as usize
+    }
+
+    /// 0x#XY# -> (X, Y)
+    fn xy(&self, opcode: u16) -> (usize, usize) {
+        (self.x(opcode), self.y(opcode))
     }
 
     /// bit 0 corresponds to the most significant bit
