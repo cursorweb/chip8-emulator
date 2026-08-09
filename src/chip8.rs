@@ -1,8 +1,37 @@
+use macroquad::input::KeyCode;
 use rand::prelude::*;
 use std::fs;
 
 pub const WIDTH: usize = 64;
 pub const HEIGHT: usize = 32;
+/// 10 cycles per frame = 10/f * 60 fps = 600 hz
+pub const CYCLES_PER_FRAME: usize = 10;
+/// ```txt
+/// CHIP-8       Keyboard
+/// 1 2 3 C      1 2 3 4
+/// 4 5 6 D  ->  Q W E R
+/// 7 8 9 E      A S D F
+/// A 0 B F      Z X C V
+/// ```
+pub const KEYMAP: [(usize, KeyCode); 16] = [
+    (0x1, KeyCode::Key1),
+    (0x2, KeyCode::Key2),
+    (0x3, KeyCode::Key3),
+    (0xC, KeyCode::Key4),
+    (0x4, KeyCode::Q),
+    (0x5, KeyCode::W),
+    (0x6, KeyCode::E),
+    (0xD, KeyCode::R),
+    (0x7, KeyCode::A),
+    (0x8, KeyCode::S),
+    (0x9, KeyCode::D),
+    (0xE, KeyCode::F),
+    (0xA, KeyCode::Z),
+    (0x0, KeyCode::X),
+    (0xB, KeyCode::C),
+    (0xF, KeyCode::V),
+];
+const MEMORY_SIZE: usize = 4096;
 
 /// opcode: u16 (2bytes)
 /// memory is in bytes, u8
@@ -16,7 +45,7 @@ pub const HEIGHT: usize = 32;
 /// If drawing twice, then VF=1 (index 15), used for collisions
 pub struct Chip8 {
     /// 4096 bytes = 4 Kib
-    memory: [u8; 4096],
+    memory: [u8; MEMORY_SIZE],
     /// cpu registers (V0-VF)
     v: [u8; 16],
     /// index register (holds memory address)
@@ -42,13 +71,15 @@ pub struct Chip8 {
     shift_y: bool,
     /// Whether or not to treat jump with offset as BNNN or BXNN
     jump_bxnn: bool,
+    /// Whether or not to change index as you set memory
+    change_idx: bool,
     rng: ThreadRng,
 }
 
 impl Chip8 {
     pub fn new() -> Self {
         Self {
-            memory: [0; 4096],
+            memory: [0; MEMORY_SIZE],
             v: [0; 16],
             i: 0,
             pc: 0x200, // program counter starts at ROM
@@ -58,8 +89,9 @@ impl Chip8 {
             stack: [0; 16],
             sp: 0,
             key: [false; 16],
-            shift_y: false,
+            shift_y: true,
             jump_bxnn: false,
+            change_idx: true,
             rng: rand::rng(),
         }
     }
@@ -68,7 +100,7 @@ impl Chip8 {
         let bytes = self.read_bytes(file);
         let mut i = 0x200;
         if bytes.len() > self.memory.len() - 0x200 {
-            panic!("ROM too large!");
+            panic!("ROM too large! Size: {}", bytes.len());
         }
         self.load_font();
         for byte in bytes {
@@ -120,8 +152,11 @@ impl Chip8 {
                     if self.sp == 0 {
                         panic!("Stack underflow (pc={})", self.pc);
                     }
-                    let address = self.stack[self.sp];
+
+                    // remember that sp points one AFTER the end
+                    // so sub 1 to get to end = top
                     self.sp -= 1;
+                    let address = self.stack[self.sp];
                     self.pc = address as usize;
                 } else {
                     panic!("Unknown opcode: {opcode} (pc={})", self.pc);
@@ -193,16 +228,20 @@ impl Chip8 {
                         // OR (8XY1) V[X] = V[X] | V[Y]
                         let (x, y) = self.xy(opcode);
                         self.v[x] = self.v[x] | self.v[y];
+                        // quirk? idk
+                        self.v[0xF] = 0;
                     }
                     0x2 => {
                         // AND (8XY2) V[X] = V[X] & V[Y]
                         let (x, y) = self.xy(opcode);
                         self.v[x] = self.v[x] & self.v[y];
+                        self.v[0xF] = 0;
                     }
                     0x3 => {
                         // XOR (8XY3) V[X] = V[X] ^ V[Y]
                         let (x, y) = self.xy(opcode);
                         self.v[x] = self.v[x] ^ self.v[y];
+                        self.v[0xF] = 0;
                     }
                     0x4 => {
                         // ADD (8XY4) V[X] = V[X] + V[Y]
@@ -301,7 +340,7 @@ impl Chip8 {
                 self.v[0xF] = 0;
 
                 for dy in 0..n {
-                    if y as u16 + dy >= WIDTH as u16 {
+                    if y as u16 + dy >= HEIGHT as u16 {
                         // clip the sprite
                         break;
                     }
@@ -379,19 +418,21 @@ impl Chip8 {
                         self.v[0xF] = (self.i > 0x0FFF) as u8;
                     }
                     0x0A => {
-                        // Get key (0x0A)
+                        // Get key (FX0A)
                         let x = self.x(opcode);
+                        let mut pressed = false;
+
                         for (i, &key) in self.key.iter().enumerate() {
                             if key {
                                 self.v[x] = i as u8;
-
-                                // break from the loop
-                                self.pc += 2;
+                                pressed = true;
                             }
                         }
 
                         // loop
-                        self.pc -= 2;
+                        if !pressed {
+                            self.pc -= 2;
+                        }
                     }
                     0x29 => {
                         // Font character (FX29)
@@ -412,6 +453,31 @@ impl Chip8 {
                             self.memory[(self.i + i) as usize] = digit;
                         }
                     }
+                    0x55 => {
+                        // Store Memory (FX55)
+                        // Store V0 to VX inclusive to I, I+1, ... I+X
+                        let x = self.x(opcode);
+                        for i in 0..=x {
+                            let vi = self.v[i];
+                            self.memory[self.i as usize + i] = vi;
+                        }
+
+                        if self.change_idx {
+                            self.i += (x + 1) as u16;
+                        }
+                    }
+                    0x65 => {
+                        // Load Memory (FX65)
+                        let x = self.x(opcode);
+                        for i in 0..=x {
+                            let mem = self.memory[self.i as usize + i];
+                            self.v[i] = mem;
+                        }
+
+                        if self.change_idx {
+                            self.i += (x + 1) as u16;
+                        }
+                    }
                     _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
                 }
             }
@@ -426,6 +492,14 @@ impl Chip8 {
         // todo sound timer
         // if self.sound_timer > 0 {
         // }
+    }
+
+    pub fn key_down(&mut self, k: usize) {
+        self.key[k] = true;
+    }
+
+    pub fn key_up(&mut self, k: usize) {
+        self.key[k] = false;
     }
 
     /// Consumes opcode

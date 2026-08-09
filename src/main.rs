@@ -1,7 +1,7 @@
 mod chip8;
 use macroquad::prelude::*;
 
-use crate::chip8::{Chip8, HEIGHT, WIDTH};
+use crate::chip8::{CYCLES_PER_FRAME, Chip8, HEIGHT, KEYMAP, WIDTH};
 
 const SIZE: i32 = 20;
 
@@ -28,12 +28,27 @@ fn pixel(x: i32, y: i32, on: bool) {
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut chip = Chip8::new();
-    chip.load_rom("ibm.ch8");
+    let file = std::env::args()
+        .skip(1)
+        .next()
+        .expect("Usage: chip8 <file>");
+    chip.load_rom(&file);
 
     loop {
         clear_background(Color::from_hex(0x111111));
 
-        chip.cycle();
+        for (key, code) in KEYMAP {
+            if is_key_pressed(code) {
+                chip.key_down(key);
+            }
+            if is_key_released(code) {
+                chip.key_up(key);
+            }
+        }
+
+        for _ in 0..CYCLES_PER_FRAME {
+            chip.cycle();
+        }
 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {

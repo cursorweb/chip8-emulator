@@ -2,7 +2,9 @@
 name = "chip8sim"
 version = "0.1.0"
 edition = "2024"
+default-run = "chip8sim"
 
 [dependencies]
-macroquad = "0.4.15"
+macroquad = { version = "0.4.15", features = ["audio"] }
 rand = "0.10.2"
+crossterm = "0.29"
