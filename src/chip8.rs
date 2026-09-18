@@ -58,7 +58,7 @@ pub struct Chip8 {
     /// 60hz timers, game tick
     delay_timer: u8,
     /// play a sound, and then set the sound timer for how long the sound to play
-    sound_timer: u8,
+    pub sound_timer: u8,
     /// separate stack because CHIP-8
     /// stores memory addresses like function recursion
     stack: [u16; 16],
@@ -426,6 +426,7 @@ impl Chip8 {
                             if key {
                                 self.v[x] = i as u8;
                                 pressed = true;
+                                break;
                             }
                         }
 
@@ -484,14 +485,6 @@ impl Chip8 {
 
             _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
         }
-
-        if self.delay_timer > 0 {
-            self.delay_timer -= 1;
-        }
-
-        // todo sound timer
-        // if self.sound_timer > 0 {
-        // }
     }
 
     pub fn key_down(&mut self, k: usize) {
@@ -500,6 +493,17 @@ impl Chip8 {
 
     pub fn key_up(&mut self, k: usize) {
         self.key[k] = false;
+    }
+
+    /// Call tick() every frame, delay_timer is display clock
+    pub fn tick(&mut self) {
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
     }
 
     /// Consumes opcode

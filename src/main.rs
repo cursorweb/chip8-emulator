@@ -1,7 +1,11 @@
 mod chip8;
+mod sound;
 use macroquad::prelude::*;
 
-use crate::chip8::{CYCLES_PER_FRAME, Chip8, HEIGHT, KEYMAP, WIDTH};
+use crate::{
+    chip8::{CYCLES_PER_FRAME, Chip8, HEIGHT, KEYMAP, WIDTH},
+    sound::Sound,
+};
 
 const SIZE: i32 = 20;
 
@@ -34,6 +38,8 @@ async fn main() {
         .expect("Usage: chip8 <file>");
     chip.load_rom(&file);
 
+    let mut sound = Sound::new().await;
+
     loop {
         clear_background(Color::from_hex(0x111111));
 
@@ -49,6 +55,10 @@ async fn main() {
         for _ in 0..CYCLES_PER_FRAME {
             chip.cycle();
         }
+
+        chip.tick();
+
+        sound.update(chip.sound_timer);
 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
