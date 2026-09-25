@@ -1,6 +1,4 @@
-use std::fmt;
-
-use crate::instr::Instr;
+use crate::instr::{Addr, Instr};
 
 #[derive(Debug, PartialEq)]
 pub struct ParseError {
@@ -8,19 +6,33 @@ pub struct ParseError {
     pub message: String,
 }
 
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Syntax error at {}: {}", self.pos, self.message)
+impl ParseError {
+    pub fn show(&self, source: &str) {
+        let before = &source[..self.pos];
+
+        let line_num = before.matches('\n').count() + 1;
+
+        let line_start = before.rfind('\n').map_or(0, |i| i + 1);
+        let line_end = source[self.pos..]
+            .find('\n')
+            .map_or(source.len(), |i| self.pos + i);
+
+        let line = &source[line_start..line_end];
+        let column = self.pos - line_start;
+
+        eprintln!("Line {line_num}, error: {}", self.message);
+        eprintln!("{line}");
+        eprintln!("{}^", " ".repeat(column));
     }
 }
 
-pub struct Parser {
-    input: String,
+pub struct Parser<'a> {
+    input: &'a str,
     pos: usize,
 }
 
-impl Parser {
-    pub fn new(input: String) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(input: &'a str) -> Self {
         Self { input, pos: 0 }
     }
 
@@ -50,6 +62,7 @@ impl Parser {
             let ident = self.ident()?;
             return match ident.as_str() {
                 "word" => Ok(Instr::Word(self.word()?)),
+                "byte" => Ok(Instr::Byte(self.byte()?)),
                 _ => Err(self.error(format!("Unknown directive {ident}"))),
             };
         }
@@ -60,36 +73,57 @@ impl Parser {
             "cls" => Ok(Instr::Cls),
             "ret" => Ok(Instr::Ret),
 
-            "j" => Ok(Instr::J(self.number()?)),
-            "call" => Ok(Instr::Call(self.number()?)),
+            "j" => Ok(Instr::J(self.addr()?)),
+            "call" => Ok(Instr::Call(self.addr()?)),
             "jri0" => Ok(Instr::Jri0(self.number()?)),
-            "jri" => Ok(Instr::Jri(self.register()?, self.byte()?)),
+            "jri" => Ok(Instr::Jri(self.register()?, self.comma_then(Self::byte)?)),
 
-            "seqi" => Ok(Instr::Seqi(self.register()?, self.byte()?)),
-            "snei" => Ok(Instr::Snei(self.register()?, self.byte()?)),
-            "seq" => Ok(Instr::Seq(self.register()?, self.register()?)),
-            "sne" => Ok(Instr::Sne(self.register()?, self.register()?)),
+            "seqi" => Ok(Instr::Seqi(self.register()?, self.comma_then(Self::byte)?)),
+            "snei" => Ok(Instr::Snei(self.register()?, self.comma_then(Self::byte)?)),
+            "seq" => Ok(Instr::Seq(
+                self.register()?,
+                self.comma_then(Self::register)?,
+            )),
+            "sne" => Ok(Instr::Sne(
+                self.register()?,
+                self.comma_then(Self::register)?,
+            )),
             "sk" => Ok(Instr::Sk(self.register()?)),
             "snk" => Ok(Instr::Snk(self.register()?)),
 
             "seti" => self.parse_seti(),
-            "addi" => Ok(Instr::Addi(self.register()?, self.byte()?)),
+            "addi" => Ok(Instr::Addi(self.register()?, self.comma_then(Self::byte)?)),
 
             "set" => self.parse_set(),
-            "or" => Ok(Instr::Or(self.register()?, self.register()?)),
-            "and" => Ok(Instr::And(self.register()?, self.register()?)),
-            "xor" => Ok(Instr::Xor(self.register()?, self.register()?)),
+            "or" => Ok(Instr::Or(
+                self.register()?,
+                self.comma_then(Self::register)?,
+            )),
+            "and" => Ok(Instr::And(
+                self.register()?,
+                self.comma_then(Self::register)?,
+            )),
+            "xor" => Ok(Instr::Xor(
+                self.register()?,
+                self.comma_then(Self::register)?,
+            )),
             "add" => self.parse_add(),
-            "subf" => Ok(Instr::Subf(self.register()?, self.register()?)),
+            "subf" => Ok(Instr::Subf(
+                self.register()?,
+                self.comma_then(Self::register)?,
+            )),
             "srlf" => self.parse_shift(true),
-            "subnf" => Ok(Instr::Subnf(self.register()?, self.register()?)),
+            "subnf" => Ok(Instr::Subnf(
+                self.register()?,
+                self.comma_then(Self::register)?,
+            )),
             "sllf" => self.parse_shift(false),
 
-            "rand" => Ok(Instr::Rand(self.register()?, self.byte()?)),
+            "rand" => Ok(Instr::Rand(self.register()?, self.comma_then(Self::byte)?)),
             "sprite" => Ok(Instr::Sprite(
                 self.register()?,
-                self.register()?,
-                self.nibble()?,
+                self.comma_then(Self::register)?,
+                self.comma_then(Self::nibble)?,
             )),
             "bcd" => Ok(Instr::Bcd(self.register()?)),
 
@@ -104,13 +138,17 @@ impl Parser {
 
     /// Parse `seti $x, NN` and `seti I, 0xNNN`
     fn parse_seti(&mut self) -> Result<Instr, ParseError> {
-        if self.peek() == Some('I') {
+        if self.peek_is('I') {
             self.advance();
             self.comma()?;
-            return Ok(Instr::SetI(self.address()?));
+            return Ok(Instr::SetAddrI(self.addr()?));
         }
 
-        Ok(Instr::Seti(self.register()?, self.byte()?))
+        let x = self.register()?;
+        self.comma()?;
+        let byte = self.byte()?;
+
+        Ok(Instr::Seti(x, byte))
     }
 
     fn parse_set(&mut self) -> Result<Instr, ParseError> {
@@ -164,7 +202,7 @@ impl Parser {
 
             if self.consume('[') {
                 self.expect('I')?;
-                self.expect('[')?;
+                self.expect(']')?;
                 self.comma()?;
                 let x = self.register()?;
                 return Ok(Instr::SetMemI(x));
@@ -173,7 +211,6 @@ impl Parser {
             let prop = self.ident()?;
             self.comma()?;
             if prop == "I" {
-                self.ident()?;
                 self.expect_ident("FONT")?;
                 self.expect('[')?;
                 let x = self.register()?;
@@ -252,6 +289,20 @@ impl Parser {
         Ok(n as u8)
     }
 
+    fn addr(&mut self) -> Result<Addr, ParseError> {
+        self.skip_whitespace();
+        if let Some(c) = self.peek() {
+            Ok(if c.is_ascii_alphabetic() {
+                Addr::Label(self.ident()?)
+            } else {
+                Addr::Val(self.address()?)
+            })
+        } else {
+            Err(self.error("Expected address, but got EOF".into()))
+        }
+    }
+
+    /// Support 0x, 0b, and decimal
     fn number(&mut self) -> Result<u16, ParseError> {
         self.skip_whitespace();
         let start = self.pos;
@@ -431,6 +482,14 @@ impl Parser {
         }
 
         Ok(result)
+    }
+
+    fn comma_then<T>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<T, ParseError>,
+    ) -> Result<T, ParseError> {
+        self.comma()?;
+        f(self)
     }
 
     fn eof(&self) -> bool {

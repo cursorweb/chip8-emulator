@@ -114,9 +114,10 @@ M[I + 3] = $3
 ```
 
 ## Raw Data
-| Directive      | Description                      |
-| -------------- | -------------------------------- |
-| `.word 0xNNNN` | Emit/preserve a raw 16-bit value |
+| Directive      | Description             |
+| -------------- | ----------------------- |
+| `.word 0xNNNN` | Emit a raw 16-bit value |
+| `.byte 0xNN`   | Emit a raw 8-bit value  |
 
 ## Labels
 ```

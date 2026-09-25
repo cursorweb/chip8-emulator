@@ -9,7 +9,10 @@ fn main() {
         .unwrap()
         .read_to_string(&mut source)
         .unwrap();
-    let x = Parser::new(source);
-    let tokens = x.parse();
-    println!("{:#?}", tokens);
+
+    let x = Parser::new(&source);
+    match x.parse() {
+        Ok(tokens) => println!("{:#?}", tokens),
+        Err(e) => e.show(&source),
+    }
 }
