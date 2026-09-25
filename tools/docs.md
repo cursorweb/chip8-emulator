@@ -2,7 +2,7 @@
 
 Custom CHIP-8 assembly syntax.
 
-Registers use `V0`-`VF`. Hexadecimal values use `0x` prefixes. You can also do `0b` and just `nn` as decimal.
+Registers use `$0`-`$F`. Hexadecimal values use `0x` prefixes. You can also do `0b` and just `nn` as decimal.
 
 ## Control Flow
 | Opcode | Assembly     | Description              |
@@ -11,35 +11,35 @@ Registers use `V0`-`VF`. Hexadecimal values use `0x` prefixes. You can also do `
 | `00EE` | `ret`        | Return from subroutine (see `call`) |
 | `1NNN` | `j NNN`      | Jump to address `NNN`    |
 | `2NNN` | `call NNN`   | Call subroutine at `NNN` |
-| `BNNN` | `jri0 NNN`   | Jump to `NNN + V0` (special command, unused) |
-| `BXNN` | `jri Vx, NN` | Jump to `NN + Vx`        |
+| `BNNN` | `jri0 NNN`   | Jump to `NNN + $0` (special command, unused) |
+| `BXNN` | `jri $x, NN` | Jump to `NN + $x`        |
 
 ## Conditional Skips
 | Opcode | Assembly      | Description                                      |
 | ------ | ------------- | ------------------------------------------------ |
-| `3XNN` | `seqi Vx, NN` | Skip next instruction if `Vx == NN`              |
-| `4XNN` | `snei Vx, NN` | Skip next instruction if `Vx != NN`              |
-| `5XY0` | `seq Vx, Vy`  | Skip next instruction if `Vx == Vy`              |
-| `9XY0` | `sne Vx, Vy`  | Skip next instruction if `Vx != Vy`              |
-| `EX9E` | `sk Vx`       | Skip next instruction if key `Vx` is pressed     |
-| `EXA1` | `snk Vx`      | Skip next instruction if key `Vx` is not pressed |
+| `3XNN` | `seqi $x, NN` | Skip next instruction if `$x == NN`              |
+| `4XNN` | `snei $x, NN` | Skip next instruction if `$x != NN`              |
+| `5XY0` | `seq $x, $y`  | Skip next instruction if `$x == $y`              |
+| `9XY0` | `sne $x, $y`  | Skip next instruction if `$x != $y`              |
+| `EX9E` | `sk $x`       | Skip next instruction if key `$x` is pressed     |
+| `EXA1` | `snk $x`      | Skip next instruction if key `$x` is not pressed |
 
 ## Register Operations
 | Opcode | Assembly       | Description                                           |
 | ------ | -------------- | ----------------------------------------------------- |
-| `6XNN` | `seti Vx, NN`  | Set `Vx = NN`                                         |
-| `7XNN` | `addi Vx, NN`  | Add `NN` to `Vx`                                      |
-| `8XY0` | `set Vx, Vy`   | Set `Vx = Vy`                                         |
-| `8XY1` | `or Vx, Vy`    | `Vx = Vx \| Vy`                                       |
-| `8XY2` | `and Vx, Vy`   | `Vx = Vx & Vy`                                        |
-| `8XY3` | `xor Vx, Vy`   | `Vx = Vx ^ Vy`                                        |
-| `8XY4` | `add Vx, Vy`   | `Vx = Vx + Vy`                                        |
-| `8XY5` | `subf Vx, Vy`  | `Vx = Vx - Vy`, set `VF` to no-borrow flag (ie `Vx >= Vy`) |
-| `8XY6` | `srlf Vx`      | Shift `Vx` right, `VF` gets shifted-out bit           |
-| `8XY6` | `srlf Vx, Vy`  | Shift `Vy` right into `Vx`, `VF` gets shifted-out bit |
-| `8XY7` | `subnf Vx, Vy` | `Vx = Vy - Vx`, set `VF` to no-borrow flag (ie `Vy >= Vx`) |
-| `8XYE` | `sllf Vx`      | Shift `Vx` left, `VF` gets shifted-out bit            |
-| `8XYE` | `sllf Vx, Vy`  | Shift `Vy` left into `Vx`, `VF` gets shifted-out bit  |
+| `6XNN` | `seti $x, NN`  | Set `$x = NN`                                         |
+| `7XNN` | `addi $x, NN`  | Add `$x = $x + NN`                                    |
+| `8XY0` | `set $x, $y`   | Set `$x = $y`                                         |
+| `8XY1` | `or $x, $y`    | `$x = $x \| $y`                                       |
+| `8XY2` | `and $x, $y`   | `$x = $x & $y`                                        |
+| `8XY3` | `xor $x, $y`   | `$x = $x ^ $y`                                        |
+| `8XY4` | `add $x, $y`   | `$x = $x + $y`                                        |
+| `8XY5` | `subf $x, $y`  | `$x = $x - $y`, set `$F` to no-borrow flag (ie `$x >= $y`) |
+| `8XY6` | `srlf $x`      | Shift `$x` right, `$F` gets shifted-out bit (special unused) |
+| `8XY6` | `srlf $x, $y`  | Shift `$y` right into `$x`, `$F` gets shifted-out bit |
+| `8XY7` | `subnf $x, $y` | `$x = -($x - $y) = $y - $x`, set `$F` to no-borrow flag (ie `$y >= $x`) |
+| `8XYE` | `sllf $x`      | Shift `$x` left, `$F` gets shifted-out bit (special unused) |
+| `8XYE` | `sllf $x, $y`  | Shift `$y` left into `$x`, `$F` gets shifted-out bit  |
 
 The two-operand shift forms depend on the `shift_y` configuration.
 
@@ -47,25 +47,25 @@ The two-operand shift forms depend on the `shift_y` configuration.
 | Opcode | Assembly        | Description     |
 | ------ | --------------- | --------------- |
 | `ANNN` | `seti I, 0xNNN` | Set `I = NNN`   |
-| `FX1E` | `add I, Vx`     | Add `Vx` to `I` |
+| `FX1E` | `add I, $x`     | Add `$x` to `I` |
 
 ## Timers and Input
 | Opcode | Assembly        | Description                               |
 | ------ | --------------- | ----------------------------------------- |
-| `FX07` | `set Vx, DELAY` | Load delay timer into `Vx`                |
-| `FX0A` | `set Vx, KEY`   | Wait for a key press and store it in `Vx` |
-| `FX15` | `set DELAY, Vx` | Set delay timer to `Vx`                   |
-| `FX18` | `set SOUND, Vx` | Set sound timer to `Vx`                   |
+| `FX07` | `set $x, DELAY` | Load delay timer into `$x`                |
+| `FX0A` | `set $x, KEY`   | Wait for a key press and store it in `$x` |
+| `FX15` | `set DELAY, $x` | Set delay timer to `$x`                   |
+| `FX18` | `set SOUND, $x` | Set sound timer to `$x`                   |
 
 ## Random Number Generation
 | Opcode | Assembly      | Description                        |
 | ------ | ------------- | ---------------------------------- |
-| `CXNN` | `rand Vx, NN` | Set `Vx` to random byte `AND` `NN` |
+| `CXNN` | `rand $x, NN` | Set `$x` to random byte `AND` `NN` |
 
 ## Graphics
 | Opcode | Assembly           | Description                                                                   |
 | ------ | ------------------ | ----------------------------------------------------------------------------- |
-| `DXYN` | `sprite Vx, Vy, N` | Draw an 8×N sprite at `(Vx, Vy)` from memory at `I`; `VF` indicates collision |
+| `DXYN` | `sprite $x, $y, N` | Draw an 8×N sprite at `($x, $y)` from memory at `I`; `$F` indicates collision |
 
 A sprite is encoded as one byte per row:
 
@@ -93,27 +93,40 @@ produces:
 ## Memory
 | Opcode | Assembly          | Description                                                         |
 | ------ | ----------------- | ------------------------------------------------------------------- |
-| `FX29` | `set I, FONT[Vx]` | Set `I` to the address of the font sprite for the character in `Vx` |
-| `FX33` | `bcd Vx`          | Store the decimal digits of `Vx` at `I`, `I+1`, and `I+2`           |
-| `FX55` | `set [I], Vx`     | Store `V0`..=`Vx` starting at memory address `I`                    |
-| `FX65` | `set Vx, [I]`     | Load `V0`..=`Vx` from memory starting at `I`                        |
+| `FX29` | `set I, FONT[$x]` | Set `I` to the address of the font sprite for the character in `$x` |
+| `FX33` | `bcd $x`          | Store the decimal digits of `$x` at `I`, `I+1`, and `I+2`           |
+| `FX55` | `set [I], $x`     | Store `$0`..=`$x` starting at memory address `I`                    |
+| `FX65` | `set $x, [I]`     | Load `$0`..=`$x` from memory starting at `I`                        |
 
 For example:
 
 ```text
-set [I], V3
+set [I], $3
 ```
 
 stores:
 
 ```text
-M[I]     = V0
-M[I + 1] = V1
-M[I + 2] = V2
-M[I + 3] = V3
+M[I]     = $0
+M[I + 1] = $1
+M[I + 2] = $2
+M[I + 3] = $3
 ```
 
 ## Raw Data
 | Directive      | Description                      |
 | -------------- | -------------------------------- |
 | `.word 0xNNNN` | Emit/preserve a raw 16-bit value |
+
+## Labels
+```
+    seti I, square
+    seti V0, 6
+    seti V1, 7
+    sprite V0, V1, 2
+loop: j loop
+
+square:
+    .word 0b00011000
+    .word 0b00011000
+```

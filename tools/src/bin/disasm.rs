@@ -47,30 +47,30 @@ impl Opcode {
                 // Skip (3XNN) if V[X] == NN
                 let x = self.x();
                 let nn = self.nn();
-                format!("seqi V{x}, {nn}")
+                format!("seqi ${x}, {nn}")
             }
             0x4000 => {
                 // Skip (4XNN) if V[X] != NN
                 let x = self.x();
                 let nn = self.nn();
-                format!("snei V{x}, {nn}")
+                format!("snei ${x}, {nn}")
             }
             0x5000 => {
                 // Skip (5XY0) if V[X] == V[Y]
                 let (x, y) = self.xy();
-                format!("seq V{x}, V{y}")
+                format!("seq ${x}, ${y}")
             }
             0x6000 => {
                 // Set (6XNN)
                 let x = self.x();
                 let nn = self.nn();
-                format!("seti V{x}, {nn}")
+                format!("seti ${x}, {nn}")
             }
             0x7000 => {
                 // Add (7XNN)
                 let x = self.x();
                 let nn = self.nn();
-                format!("addi V{x}, {nn}")
+                format!("addi ${x}, {nn}")
             }
             0x8000 => {
                 let op = opcode & 0x000F;
@@ -78,56 +78,56 @@ impl Opcode {
                     0x0 => {
                         // Set (8XY0) V[X] = V[Y]
                         let (x, y) = self.xy();
-                        format!("set V{x}, V{y}")
+                        format!("set ${x}, ${y}")
                     }
                     0x1 => {
                         // OR (8XY1) V[X] = V[X] | V[Y]
                         let (x, y) = self.xy();
-                        format!("or V{x}, V{y}")
+                        format!("or ${x}, ${y}")
                     }
                     0x2 => {
                         // AND (8XY2) V[X] = V[X] & V[Y]
                         let (x, y) = self.xy();
-                        format!("and V{x}, V{y}")
+                        format!("and ${x}, ${y}")
                     }
                     0x3 => {
                         // XOR (8XY3) V[X] = V[X] ^ V[Y]
                         let (x, y) = self.xy();
-                        format!("xor V{x}, V{y}")
+                        format!("xor ${x}, ${y}")
                     }
                     0x4 => {
                         // ADD (8XY4) V[X] = V[X] + V[Y]
                         let (x, y) = self.xy();
-                        format!("add V{x}, V{y}")
+                        format!("add ${x}, ${y}")
                     }
                     0x5 => {
                         // SUB (8XY5) V[X] = V[X] - V[Y]
                         // if VX >= VY, VF = 1 (no borrow)
                         // if VX < VY, VF = 0 (opposite of what overflow is! -- underflow)
                         let (x, y) = self.xy();
-                        format!("subf V{x}, V{y}")
+                        format!("subf ${x}, ${y}")
                     }
                     0x6 => {
                         // SHIFT (8XY6) V[X] >>= 1
                         let (x, y) = self.xy();
                         if shift_y {
-                            format!("srlf V{x}, V{y}")
+                            format!("srlf ${x}, ${y}")
                         } else {
-                            format!("srlf V{x}")
+                            format!("srlf ${x}")
                         }
                     }
                     0x7 => {
                         // SUB (8XY7) V[X] = V[Y] - V[X]
                         let (x, y) = self.xy();
-                        format!("subnf V{x}, V{y}")
+                        format!("subnf ${x}, ${y}")
                     }
                     0xE => {
                         // SHIFT (8XYE) V[X] <<= 1
                         let (x, y) = self.xy();
                         if shift_y {
-                            format!("sllf V{x}, V{y}")
+                            format!("sllf ${x}, ${y}")
                         } else {
-                            format!("sllf V{x}")
+                            format!("sllf ${x}")
                         }
                     }
                     _ => self.format_word(),
@@ -136,7 +136,7 @@ impl Opcode {
             0x9000 => {
                 // Skip (9XY0) if V[X] != V[Y]
                 let (x, y) = self.xy();
-                format!("sne V{x}, V{y}")
+                format!("sne ${x}, ${y}")
             }
             0xA000 => {
                 // Set Index (ANNN)
@@ -149,7 +149,7 @@ impl Opcode {
                 if jump_bxnn {
                     let nn = self.nn();
                     let x = self.x();
-                    format!("jri V{x}, {nn}")
+                    format!("jri ${x}, {nn}")
                 } else {
                     let nnn = self.nnn();
                     format!("jri0 {nnn}")
@@ -159,7 +159,7 @@ impl Opcode {
                 // Rand (CXNN)
                 let x = self.x();
                 let nn = self.nn();
-                format!("rand V{x}, {nn}")
+                format!("rand ${x}, {nn}")
             }
             0xD000 => {
                 // Draw (DXYN)
@@ -169,7 +169,7 @@ impl Opcode {
                 let (x, y) = self.xy();
                 let n = self.n();
 
-                format!("sprite V{x}, V{y}, {n}")
+                format!("sprite ${x}, ${y}, {n}")
             }
             0xE000 => {
                 let op = opcode & 0x00FF;
@@ -177,12 +177,12 @@ impl Opcode {
                     0x9E => {
                         // Skip if key pressed (EX9E)
                         let x = self.x();
-                        format!("sk V{x}")
+                        format!("sk ${x}")
                     }
                     0xA1 => {
                         // Skip if key NOT pressed (EXA1)
                         let x = self.x();
-                        format!("snk V{x}")
+                        format!("snk ${x}")
                     }
                     _ => self.format_word(),
                 }
@@ -193,49 +193,49 @@ impl Opcode {
                     0x07 => {
                         // Set VX to delay timer (FX07)
                         let x = self.x();
-                        format!("set V{x}, DELAY")
+                        format!("set ${x}, DELAY")
                     }
                     0x15 => {
                         // Set delay timer to VX (FX15)
                         let x = self.x();
-                        format!("set DELAY, V{x}")
+                        format!("set DELAY, ${x}")
                     }
                     0x18 => {
                         // Set sound timer to VX (FX18)
                         let x = self.x();
-                        format!("set SOUND, V{x}")
+                        format!("set SOUND, ${x}")
                     }
                     0x1E => {
                         // Index register += VX (FX1E)
                         let x = self.x();
-                        format!("add I, V{x}")
+                        format!("add I, ${x}")
                     }
                     0x0A => {
                         // Get key (FX0A)
                         let x = self.x();
-                        format!("set V{x}, KEY")
+                        format!("set ${x}, KEY")
                     }
                     0x29 => {
                         // Font character (FX29)
                         let x = self.x();
-                        format!("set I, FONT[V{x}]")
+                        format!("set I, FONT[${x}]")
                     }
                     0x33 => {
                         // Binary-coded decimal conversion (FX33)
                         // eg if VX = 156, I = 1, I+1 = 5, I+2 = 6
                         let x = self.x();
-                        format!("bcd V{x}")
+                        format!("bcd ${x}")
                     }
                     0x55 => {
                         // Store Memory (FX55)
                         // Store V0 to VX inclusive to I, I+1, ... I+X
                         let x = self.x();
-                        format!("set [I], V{x}")
+                        format!("set [I], ${x}")
                     }
                     0x65 => {
                         // Load Memory (FX65)
                         let x = self.x();
-                        format!("set V{x}, [I]")
+                        format!("set ${x}, [I]")
                     }
                     _ => self.format_word(),
                 }
