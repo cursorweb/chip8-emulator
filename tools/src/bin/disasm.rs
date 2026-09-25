@@ -64,7 +64,7 @@ impl Opcode {
                 // Set (6XNN)
                 let x = self.x();
                 let nn = self.nn();
-                format!("ldi V{x}, {nn}")
+                format!("seti V{x}, {nn}")
             }
             0x7000 => {
                 // Add (7XNN)
@@ -141,7 +141,7 @@ impl Opcode {
             0xA000 => {
                 // Set Index (ANNN)
                 let nnn = self.nnn();
-                format!("ldi I, 0x{nnn:x}")
+                format!("seti I, 0x{nnn:x}")
             }
             0xB000 => {
                 // Jump with offset (BNNN)
@@ -149,10 +149,10 @@ impl Opcode {
                 if jump_bxnn {
                     let nn = self.nn();
                     let x = self.x();
-                    format!("jir V{x}, {nn}")
+                    format!("jri V{x}, {nn}")
                 } else {
                     let nnn = self.nnn();
-                    format!("ji0 {nnn}")
+                    format!("jri0 {nnn}")
                 }
             }
             0xC000 => {
@@ -193,17 +193,17 @@ impl Opcode {
                     0x07 => {
                         // Set VX to delay timer (FX07)
                         let x = self.x();
-                        format!("ld V{x}, delay")
+                        format!("set V{x}, DELAY")
                     }
                     0x15 => {
                         // Set delay timer to VX (FX15)
                         let x = self.x();
-                        format!("ld delay, V{x}")
+                        format!("set DELAY, V{x}")
                     }
                     0x18 => {
                         // Set sound timer to VX (FX18)
                         let x = self.x();
-                        format!("ld sound, V{x}")
+                        format!("set SOUND, V{x}")
                     }
                     0x1E => {
                         // Index register += VX (FX1E)
@@ -213,12 +213,12 @@ impl Opcode {
                     0x0A => {
                         // Get key (FX0A)
                         let x = self.x();
-                        format!("ld V{x}, key")
+                        format!("set V{x}, KEY")
                     }
                     0x29 => {
                         // Font character (FX29)
                         let x = self.x();
-                        format!("ld I, font[V{x}]")
+                        format!("set I, FONT[V{x}]")
                     }
                     0x33 => {
                         // Binary-coded decimal conversion (FX33)
@@ -230,12 +230,12 @@ impl Opcode {
                         // Store Memory (FX55)
                         // Store V0 to VX inclusive to I, I+1, ... I+X
                         let x = self.x();
-                        format!("sm I, V{x}")
+                        format!("set [I], V{x}")
                     }
                     0x65 => {
                         // Load Memory (FX65)
                         let x = self.x();
-                        format!("lm I, V{x}")
+                        format!("set V{x}, [I]")
                     }
                     _ => self.format_word(),
                 }
@@ -277,10 +277,7 @@ impl Opcode {
 /// 0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
 /// 0x200-0xFFF - Program ROM and work RAM
 fn main() {
-    let file = std::env::args()
-        .skip(1)
-        .next()
-        .expect("Usage: disasm <file>");
+    let file = std::env::args().nth(1).expect("Usage: disasm <file>");
     let bytes = fs::read(file.clone()).expect("File not found");
 
     if bytes.len() > 0xFFF - 0x200 + 1 {
@@ -317,19 +314,19 @@ fn main() {
     let mut show_word = false;
 
     for line in lines {
-        let x = line.format_inst(true, false);
-
-        if x.starts_with(".word") {
-            show_word = true;
-        }
-
         let inst = if show_word {
             line.format_word()
         } else {
-            line.format_inst(true, false)
+            let inst = line.format_inst(true, false);
+
+            if inst.starts_with(".word") {
+                show_word = true;
+            }
+
+            inst
         };
 
-        file.write_all(format!("{:<30} # 0x{:03x}\n", inst, line.pc).as_bytes())
+        file.write_all(format!("{:<30} # 0x{:x}\n", inst, line.pc).as_bytes())
             .unwrap();
     }
 }

@@ -2,24 +2,23 @@ cls                            # 0x200
 ldi I, 0x22a                   # 0x202
 ldi V0, 12                     # 0x204
 ldi V1, 8                      # 0x206
-sprite V0 V1 15                # 0x208
+sprite V0, V1, 15              # 0x208
 addi V0, 9                     # 0x20a
 ldi I, 0x239                   # 0x20c
-sprite V0 V1 15                # 0x20e
+sprite V0, V1, 15              # 0x20e
 ldi I, 0x248                   # 0x210
 addi V0, 8                     # 0x212
-sprite V0 V1 15                # 0x214
+sprite V0, V1, 15              # 0x214
 addi V0, 4                     # 0x216
 ldi I, 0x257                   # 0x218
-sprite V0 V1 15                # 0x21a
+sprite V0, V1, 15              # 0x21a
 addi V0, 8                     # 0x21c
 ldi I, 0x266                   # 0x21e
-sprite V0 V1 15                # 0x220
+sprite V0, V1, 15              # 0x220
 addi V0, 8                     # 0x222
 ldi I, 0x275                   # 0x224
-sprite V0 V1 15                # 0x226
+sprite V0, V1, 15              # 0x226
 j 0x228                        # 0x228
-
 
 .word 0xff00                   # 0x22a
 .word 0xff00                   # 0x22c
