@@ -290,8 +290,7 @@ impl Chip8 {
             }
             0x9000 => {
                 // Skip (9XY0) if V[X] != V[Y]
-                let x = self.x(opcode);
-                let y = self.y(opcode);
+                let (x, y) = self.xy(opcode);
                 if self.v[x] != self.v[y] {
                     self.pc += 2;
                 }
@@ -326,8 +325,7 @@ impl Chip8 {
                 // draws N pixels tall sprite from memory location at i
                 // at horizontal coordinate vX and vertical coordinate vY
                 // recall sprites are always dimension 8 x N
-                let vx = self.x(opcode);
-                let vy = self.y(opcode);
+                let (vx, vy) = self.xy(opcode);
                 let n = self.n(opcode);
 
                 let x = self.v[vx] % WIDTH as u8;
