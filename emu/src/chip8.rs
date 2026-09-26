@@ -5,7 +5,7 @@ use std::fs;
 pub const WIDTH: usize = 64;
 pub const HEIGHT: usize = 32;
 /// 10 cycles per frame = 10/f * 60 fps = 600 hz
-pub const CYCLES_PER_FRAME: usize = 10;
+pub const CYCLES_PER_FRAME: usize = 20;
 /// ```txt
 /// CHIP-8       Keyboard
 /// 1 2 3 C      1 2 3 4
@@ -159,7 +159,7 @@ impl Chip8 {
                     let address = self.stack[self.sp];
                     self.pc = address as usize;
                 } else {
-                    panic!("Unknown opcode: {opcode} (pc={})", self.pc);
+                    panic!("Unknown opcode: {opcode:04x} (pc={})", self.pc);
                 }
             }
             0x1000 => {
@@ -285,7 +285,7 @@ impl Chip8 {
                         self.v[0xF] = (self.v[x] & 0x80 != 0) as u8;
                         self.v[x] <<= 1;
                     }
-                    _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
+                    _ => panic!("Unknown opcode: {opcode:04x} (pc={})", self.pc),
                 }
             }
             0x9000 => {
@@ -386,7 +386,7 @@ impl Chip8 {
                             self.pc += 2;
                         }
                     }
-                    _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
+                    _ => panic!("Unknown opcode: {opcode:04x} (pc={})", self.pc),
                 }
             }
             0xF000 => {
@@ -477,11 +477,11 @@ impl Chip8 {
                             self.i += (x + 1) as u16;
                         }
                     }
-                    _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
+                    _ => panic!("Unknown opcode: {opcode:04} (pc={})", self.pc),
                 }
             }
 
-            _ => panic!("Unknown opcode: {opcode} (pc={})", self.pc),
+            _ => panic!("Unknown opcode: {opcode:04} (pc={})", self.pc),
         }
     }
 

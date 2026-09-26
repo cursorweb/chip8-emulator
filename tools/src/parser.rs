@@ -307,24 +307,22 @@ impl<'a> Parser<'a> {
         self.skip_whitespace();
         let start = self.pos;
 
-        let base = if self.consume('0') {
+        let (base, digit_start) = if self.consume('0') {
             match self.peek() {
                 Some('x') | Some('X') => {
                     self.advance();
-                    16
+                    (16, self.pos)
                 }
                 Some('b') | Some('B') => {
                     self.advance();
-                    2
+                    (2, self.pos)
                 }
-                // also consume 0, so 01 -> 1 is okay!
-                _ => 10,
+                // 01 -> 1, no problem!
+                _ => (10, self.pos - 1),
             }
         } else {
-            10
+            (10, self.pos)
         };
-
-        let digit_start = self.pos;
 
         while let Some(c) = self.peek() {
             if c.is_digit(base) {
@@ -337,7 +335,7 @@ impl<'a> Parser<'a> {
         if self.pos == digit_start {
             return Err(ParseError {
                 pos: start,
-                message: "expected digits".into(),
+                message: "Expected digits".into(),
             });
         }
 
