@@ -4,6 +4,8 @@ Custom CHIP-8 assembly syntax.
 
 Registers use `$0`-`$F`. Hexadecimal values use `0x` prefixes. You can also do `0b` and just `nn` as decimal.
 
+**Note:** Addresses are 2 bytes (`u16`)
+
 ## Keys
 | Key | Code |
 | --- | -----|
