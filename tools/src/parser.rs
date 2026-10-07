@@ -303,9 +303,36 @@ impl<'a> Parser<'a> {
     }
 
     /// Support 0x, 0b, and decimal
+    /// Use u16 to support NNN
     fn number(&mut self) -> Result<u16, ParseError> {
         self.skip_whitespace();
         let start = self.pos;
+
+        if self.consume('`') {
+            let Some(c) = self.advance() else {
+                return Err(self.error("Unexpected EOF after constant".into()));
+            };
+
+            return Ok(match c.to_ascii_uppercase() {
+                '1' => 0x1,
+                '2' => 0x2,
+                '3' => 0x3,
+                '4' => 0xC,
+                'Q' => 0x4,
+                'W' => 0x5,
+                'E' => 0x6,
+                'R' => 0xD,
+                'A' => 0x7,
+                'S' => 0x8,
+                'D' => 0x9,
+                'F' => 0xE,
+                'Z' => 0xA,
+                'X' => 0x0,
+                'C' => 0xB,
+                'V' => 0xF,
+                _ => return Err(self.error(format!("Unknown constant '`{c}'"))),
+            });
+        }
 
         let (base, digit_start) = if self.consume('0') {
             match self.peek() {

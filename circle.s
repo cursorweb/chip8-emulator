@@ -10,26 +10,26 @@ loop:
     
     draw $2, $3, 4
 
-    seti $0, 5  # W
+    seti $0, `w
     snk $0
     subf $3, $1
 
-    seti $0, 7  # A
+    seti $0, `a
     snk $0
     subf $2, $1
 
-    seti $0, 8  # S
+    seti $0, `s
     snk $0
     add $3, $1
 
-    seti $0, 9  # D
+    seti $0, `d
     snk $0
     add $2, $1
 
-# 60 / 2 = 30 fps
-    seti $f, 2
+# 60 / 1 = 60 fps
+    seti $f, 1
     set DELAY, $f
-    
+
 wait:
     set $f, DELAY
     seqi $f, 0

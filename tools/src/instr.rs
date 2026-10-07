@@ -137,7 +137,9 @@ impl Instr {
         (*y as u16) << 4
     }
 
-    pub fn label_lookup(instrs: &[Instr]) -> Result<HashMap<String, u16>, Vec<String>> {
+    /// Aggregate instructions and generate a lookup table for labels that are found
+    /// Also check for referenced labels that do not exist
+    pub fn gen_label_lookup(instrs: &[Instr]) -> Result<HashMap<String, u16>, Vec<String>> {
         let mut labels = HashMap::new();
         let mut referenced = HashSet::new();
         let mut addr = 0x200;

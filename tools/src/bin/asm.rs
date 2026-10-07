@@ -28,7 +28,7 @@ fn main() {
         .open(format!("{}.ch8", output_path.to_str().unwrap()))
         .unwrap();
 
-    let labels = match Instr::label_lookup(&tokens) {
+    let labels = match Instr::gen_label_lookup(&tokens) {
         Ok(l) => l,
         Err(errs) => {
             for err in errs {

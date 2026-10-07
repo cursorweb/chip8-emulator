@@ -13,18 +13,22 @@ pub const CYCLES_PER_FRAME: usize = 20;
 /// 7 8 9 E      A S D F
 /// A 0 B F      Z X C V
 /// ```
-pub const KEYMAP: [(usize, KeyCode); 16] = [
+pub const KEYMAP: [(usize, KeyCode); 20] = [
     (0x1, KeyCode::Key1),
     (0x2, KeyCode::Key2),
     (0x3, KeyCode::Key3),
     (0xC, KeyCode::Key4),
     (0x4, KeyCode::Q),
     (0x5, KeyCode::W),
+    (0x5, KeyCode::Up), // overload
     (0x6, KeyCode::E),
     (0xD, KeyCode::R),
     (0x7, KeyCode::A),
+    (0x7, KeyCode::Left), // overload
     (0x8, KeyCode::S),
+    (0x8, KeyCode::Down), // overload
     (0x9, KeyCode::D),
+    (0x9, KeyCode::Right), // overload
     (0xE, KeyCode::F),
     (0xA, KeyCode::Z),
     (0x0, KeyCode::X),
@@ -67,6 +71,7 @@ pub struct Chip8 {
     sp: usize,
     /// store key(s) being pressed 'u8'
     key: [bool; 16],
+
     /// Whether or not 8XY6 and 8XYE uses VY
     shift_y: bool,
     /// Whether or not to treat jump with offset as BNNN or BXNN

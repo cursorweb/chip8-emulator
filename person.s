@@ -5,16 +5,16 @@
 
 loop:
     draw $1, $2, 8             # 0x208
-    seti $0, 5                 # 0x20a
+    seti $0, `w                # 0x20a
     snk $0                     # 0x20c
     addi $2, 255               # 0x20e
-    seti $0, 8                 # 0x210
+    seti $0, `s                # 0x210
     snk $0                     # 0x212
     addi $2, 1                 # 0x214
-    seti $0, 7                 # 0x216
+    seti $0, `a                # 0x216
     snk $0                     # 0x218
     addi $1, 255               # 0x21a
-    seti $0, 9                 # 0x21c
+    seti $0, `d                # 0x21c
     snk $0                     # 0x21e
     addi $1, 1                 # 0x220
     draw $1, $2, 8             # 0x222
