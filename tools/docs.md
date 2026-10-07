@@ -4,7 +4,11 @@ Custom CHIP-8 assembly syntax.
 
 Registers use `$0`-`$F`. Hexadecimal values use `0x` prefixes. You can also do `0b` and just `nn` as decimal.
 
-**Note:** Addresses are 2 bytes (`u16`)
+**Note:** Addresses are 2 bytes (`u16`), Registers store 1 byte (`u8`)
+
+## Screen
+Width: 64 px
+Height: 32 px
 
 ## Keys
 | Key | Code |
@@ -90,7 +94,7 @@ The two-operand shift forms depend on the `shift_y` configuration.
 ## Graphics
 | Opcode | Assembly           | Description                                                                   |
 | ------ | ------------------ | ----------------------------------------------------------------------------- |
-| `DXYN` | `draw $x, $y, N` | Draw an 8xN sprite at `($x, $y)` from memory at `I`; `$F` indicates collision |
+| `DXYN` | `draw $x, $y, N` | Draw an 8xN sprite at `($x, $y)` from memory at `I`; `$F == 1` indicates collision |
 
 A sprite is encoded as one byte per row:
 

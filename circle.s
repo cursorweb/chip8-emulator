@@ -1,33 +1,41 @@
-# $0 key
-# $2 x
-# $3 y
+# x $1
+# y $2
+# vx $3
+# vy $4
 
-    seti I, circle
-    seti $1, 1
+    seti I, ball
+    seti $1, 31
+    seti $2, 15
+
+    rand $3, 1
+    snei $3, 0
+    seti $3, 255
+
+    rand $4, 1
+    snei $4, 0
+    seti $4, 255
 
 loop:
     cls
-    
-    draw $2, $3, 4
 
-    seti $0, `w
-    snk $0
-    subf $3, $1
+    draw $1, $2, 1
 
-    seti $0, `a
-    snk $0
-    subf $2, $1
+    add $1, $3
+    add $2, $4
 
-    seti $0, `s
-    snk $0
-    add $3, $1
+    snei $1, 63
+    seti $3, 255
 
-    seti $0, `d
-    snk $0
-    add $2, $1
+    snei $2, 31
+    seti $4, 255
 
-# 60 / 1 = 60 fps
-    seti $f, 1
+    snei $1, 0
+    seti $3, 1
+
+    snei $2, 0
+    seti $4, 1
+
+    seti $f, 3
     set DELAY, $f
 
 wait:
@@ -37,8 +45,5 @@ wait:
 
     j loop
 
-circle:
-    .byte 0b00011000
-    .byte 0b00100100
-    .byte 0b00100100
-    .byte 0b00011000
+ball:
+    .byte 0x80

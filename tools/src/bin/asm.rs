@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use tools::{instr::Instr, parser::Parser};
+use tools::{asmparser::Parser, instr::Instr};
 
 fn main() {
     let file = std::env::args().nth(1).expect("Usage: asm <file>");

@@ -138,8 +138,7 @@ impl<'a> Parser<'a> {
 
     /// Parse `seti $x, NN` and `seti I, 0xNNN`
     fn parse_seti(&mut self) -> Result<Instr, ParseError> {
-        if self.peek_is('I') {
-            self.advance();
+        if self.consume('I') {
             self.comma()?;
             return Ok(Instr::SetAddrI(self.addr()?));
         }
@@ -461,6 +460,7 @@ impl<'a> Parser<'a> {
     }
 
     fn consume(&mut self, c: char) -> bool {
+        self.skip_whitespace();
         if let Some(p) = self.peek() {
             if p == c {
                 self.advance();

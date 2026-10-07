@@ -12,3 +12,6 @@ Goals
 ## Tutorial
 https://multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
 https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
+
+# Octo
+https://johnearnest.github.io/Octo/docs/BeginnersGuide.html
