@@ -4,6 +4,29 @@ Custom CHIP-8 assembly syntax.
 
 Registers use `$0`-`$F`. Hexadecimal values use `0x` prefixes. You can also do `0b` and just `nn` as decimal.
 
+## Keys
+| Key | Code |
+| --- | -----|
+| 1   | 1    |
+| 2   | 2    |
+| 3   | 3    |
+| 4   | C    |
+| Q   | 4    |
+| **W** | 5  |
+| E   | 6    |
+| R   | D    |
+| **A** | 7  |
+| **S** | 8  |
+| **D** | 9  |
+| F   | E    |
+| Z   | A    |
+| X   | 0    |
+| C   | B    |
+| V   | F    |
+
+Use `` `<key>`` as a macro shortcut. For example, `` `A`` translates to `0x7`
+
+
 ## Control Flow
 | Opcode | Assembly     | Description              |
 | ------ | ------------ | ------------------------ |
@@ -65,7 +88,7 @@ The two-operand shift forms depend on the `shift_y` configuration.
 ## Graphics
 | Opcode | Assembly           | Description                                                                   |
 | ------ | ------------------ | ----------------------------------------------------------------------------- |
-| `DXYN` | `sprite $x, $y, N` | Draw an 8×N sprite at `($x, $y)` from memory at `I`; `$F` indicates collision |
+| `DXYN` | `draw $x, $y, N` | Draw an 8xN sprite at `($x, $y)` from memory at `I`; `$F` indicates collision |
 
 A sprite is encoded as one byte per row:
 

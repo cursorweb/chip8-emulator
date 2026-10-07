@@ -120,7 +120,7 @@ impl<'a> Parser<'a> {
             "sllf" => self.parse_shift(false),
 
             "rand" => Ok(Instr::Rand(self.register()?, self.comma_then(Self::byte)?)),
-            "sprite" => Ok(Instr::Sprite(
+            "draw" => Ok(Instr::Draw(
                 self.register()?,
                 self.comma_then(Self::register)?,
                 self.comma_then(Self::nibble)?,

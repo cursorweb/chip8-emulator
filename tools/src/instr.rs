@@ -41,7 +41,7 @@ pub enum Instr {
     AddMemI(u8),
 
     Rand(u8, u8),
-    Sprite(u8, u8, u8),
+    Draw(u8, u8, u8),
     Bcd(u8),
 
     /// `set $x, DELAY`
@@ -110,7 +110,7 @@ impl Instr {
             Instr::Sllf(x, y) => 0x800E | self.x(x) | self.y(y),
             Instr::AddMemI(x) => 0xF01E | self.x(x),
             Instr::Rand(x, nn) => 0xC000 | self.x(x) | *nn as u16,
-            Instr::Sprite(x, y, n) => 0xD000 | self.x(x) | self.y(y) | *n as u16,
+            Instr::Draw(x, y, n) => 0xD000 | self.x(x) | self.y(y) | *n as u16,
             Instr::Bcd(x) => 0xF033 | self.x(x),
             Instr::GetDelay(x) => 0xF007 | self.x(x),
             Instr::GetKey(x) => 0xF00A | self.x(x),

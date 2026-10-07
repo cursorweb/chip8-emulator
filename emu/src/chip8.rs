@@ -265,8 +265,12 @@ impl Chip8 {
                         if self.shift_y {
                             self.v[x] = self.v[y];
                         }
-                        self.v[0xF] = (self.v[x] & 1 == 1) as u8;
-                        self.v[x] >>= 1;
+
+                        let value = self.v[x];
+                        let borrow = (self.v[x] & 1 == 1) as u8;
+
+                        self.v[x] = value >> 1;
+                        self.v[0xF] = borrow;
                     }
                     0x7 => {
                         // SUB (8XY7) V[X] = V[Y] - V[X]
@@ -281,9 +285,17 @@ impl Chip8 {
                         if self.shift_y {
                             self.v[x] = self.v[y];
                         }
+
+                        let value = self.v[x];
                         // VX & 0x80 is either 0x80 or 0x00 (0x8 is 1000)
-                        self.v[0xF] = (self.v[x] & 0x80 != 0) as u8;
-                        self.v[x] <<= 1;
+                        let carry = (value & 0x80 != 0) as u8;
+
+                        self.v[x] = value << 1;
+                        self.v[0xF] = carry;
+
+                        // previous bug:
+                        // set vF directly and then shift directly. But this would fail if vX = vF.
+                        // eg, 0b110 -> 0b001 (set vF) -> 0b010 (shift) is wrong, should be 0b001
                     }
                     _ => panic!("Unknown opcode: {opcode:04x} (pc={})", self.pc),
                 }
@@ -338,31 +350,24 @@ impl Chip8 {
                 self.v[0xF] = 0;
 
                 for dy in 0..n {
-                    if y as u16 + dy >= HEIGHT as u16 {
-                        // clip the sprite
-                        break;
-                    }
-
                     // row of 8 pixels
                     let row = self.memory[(self.i + dy) as usize];
-                    for dx in 0..8 {
-                        if x + dx >= WIDTH as u8 {
-                            break;
-                        }
-
+                    for dx in 0..8u16 {
                         // xor each pixel that is 'on'
                         // if any pixels were turned off, set VF to 1
                         let pixel = self.get_bit(row, dx as u8);
 
                         if pixel == true {
-                            let gfx_i = (y as u16 + dy) * WIDTH as u16 + (x + dx) as u16;
+                            let gfx_y = (y as u16 + dy) % HEIGHT as u16;
+                            let gfx_x = (x as u16 + dx) % WIDTH as u16;
+                            let gfx_i = (gfx_y * WIDTH as u16 + gfx_x) as usize;
 
-                            if self.gfx[gfx_i as usize] {
+                            if self.gfx[gfx_i] {
                                 // same parity, so would switch off
                                 self.v[0xF] = 1;
                             }
 
-                            self.gfx[gfx_i as usize] ^= pixel;
+                            self.gfx[gfx_i] ^= pixel;
                         }
                     }
                 }

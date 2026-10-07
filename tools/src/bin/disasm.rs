@@ -169,7 +169,7 @@ impl Opcode {
                 let (x, y) = self.xy();
                 let n = self.n();
 
-                format!("sprite ${x:x}, ${y:x}, {n}")
+                format!("draw ${x:x}, ${y:x}, {n}")
             }
             0xE000 => {
                 let op = opcode & 0x00FF;
