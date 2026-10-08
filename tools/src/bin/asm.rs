@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use tools::{asmparser::Parser, instr::Instr};
+use tools::{asmparser::AsmParser, instr::Instr};
 
 fn main() {
     let file = std::env::args().nth(1).expect("Usage: asm <file>");
@@ -14,7 +14,7 @@ fn main() {
         .read_to_string(&mut source)
         .unwrap();
 
-    let x = Parser::new(&source);
+    let x = AsmParser::new(&source);
     let tokens = match x.parse() {
         Ok(tokens) => tokens,
         Err(e) => return e.show(&source),
@@ -38,8 +38,13 @@ fn main() {
         }
     };
 
+    let mut total_bytes = 0;
+
     for token in tokens {
         let bytes = token.to_bytes(&labels);
+        total_bytes += bytes.len();
         output_file.write(&bytes).unwrap();
     }
+
+    println!("Assembled {total_bytes}/{} bytes", 0x1000 - 0x200);
 }

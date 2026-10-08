@@ -6,6 +6,7 @@ https://johnearnest.github.io/Octo/docs/Manual.html
 * Normal commands
 * Aliases
 * Macros (maybe?)
+* Calc (maybe?)
 
 **Out of Scope**:
 * Self-modifying code

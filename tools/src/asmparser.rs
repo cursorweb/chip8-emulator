@@ -26,12 +26,12 @@ impl ParseError {
     }
 }
 
-pub struct Parser<'a> {
+pub struct AsmParser<'a> {
     input: &'a str,
     pos: usize,
 }
 
-impl<'a> Parser<'a> {
+impl<'a> AsmParser<'a> {
     pub fn new(input: &'a str) -> Self {
         Self { input, pos: 0 }
     }
@@ -307,6 +307,7 @@ impl<'a> Parser<'a> {
         self.skip_whitespace();
         let start = self.pos;
 
+        // Keyboard "Macro"
         if self.consume('`') {
             let Some(c) = self.advance() else {
                 return Err(self.error("Unexpected EOF after constant".into()));
@@ -332,6 +333,8 @@ impl<'a> Parser<'a> {
                 _ => return Err(self.error(format!("Unknown constant '`{c}'"))),
             });
         }
+
+        let negative = if self.consume('-') { true } else { false };
 
         let (base, digit_start) = if self.consume('0') {
             match self.peek() {
@@ -367,7 +370,17 @@ impl<'a> Parser<'a> {
 
         let text = &self.input[digit_start..self.pos];
 
-        u16::from_str_radix(text, base).map_err(|_| self.error("Number does not fit in u16".into()))
+        let number = u16::from_str_radix(text, base)
+            .map_err(|_| self.error("Number does not fit in u16".into()))?;
+        if negative {
+            if number > u8::MAX as u16 {
+                Err(self.error("Negative number would overflow".into()))
+            } else {
+                Ok(256 - number)
+            }
+        } else {
+            Ok(number)
+        }
     }
 
     fn byte(&mut self) -> Result<u8, ParseError> {

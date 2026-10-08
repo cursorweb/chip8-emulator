@@ -9,11 +9,11 @@
 
     rand $3, 1
     snei $3, 0
-    seti $3, 255
+    seti $3, -1
 
     rand $4, 1
     snei $4, 0
-    seti $4, 255
+    seti $4, -1
 
 loop:
     cls
@@ -24,10 +24,10 @@ loop:
     add $2, $4
 
     snei $1, 63
-    seti $3, 255
+    seti $3, -1
 
     snei $2, 31
-    seti $4, 255
+    seti $4, -1
 
     snei $1, 0
     seti $3, 1
