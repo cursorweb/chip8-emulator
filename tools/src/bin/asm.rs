@@ -2,6 +2,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
     path::Path,
+    time::Instant,
 };
 
 use tools::{asmparser::AsmParser, instr::Instr};
@@ -14,6 +15,7 @@ fn main() {
         .read_to_string(&mut source)
         .unwrap();
 
+    let start = Instant::now();
     let x = AsmParser::new(&source);
     let tokens = match x.parse() {
         Ok(tokens) => tokens,
@@ -46,5 +48,9 @@ fn main() {
         output_file.write(&bytes).unwrap();
     }
 
-    println!("Assembled {total_bytes}/{} bytes", 0x1000 - 0x200);
+    println!(
+        "Assembled {total_bytes}/{} bytes in {:.2}secs",
+        0x1000 - 0x200,
+        start.elapsed().as_secs_f32()
+    );
 }

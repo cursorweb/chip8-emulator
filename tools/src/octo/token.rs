@@ -2,7 +2,7 @@ pub enum Token {
     // Registers / literals
     Register(u8),
     Number(u16),
-    Identifier(String),
+    Ident(String),
 
     // Directives
     /// :alias x v1

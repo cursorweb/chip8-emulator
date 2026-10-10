@@ -30,6 +30,12 @@ impl<'a> Lexer<'a> {
     pub fn next_token(&mut self) -> Result<Token, ParseError> {
         self.skip_whitespace();
 
+        if self.peek().is_some_and(|x| x.is_ascii_digit()) {
+            return Ok(self.number()?);
+        } else if self.peek().is_some_and(|x| x.is_ascii_alphabetic()) {
+            return Ok(self.parse_ident());
+        }
+
         let Some(c) = self.advance() else {
             return Ok(Token::Eof);
         };
@@ -92,8 +98,6 @@ impl<'a> Lexer<'a> {
                 Token::XorEq
             }
 
-            // TODO: numbers
-            // TODO: identifiers / keywords
             _ => return Err(self.error(format!("Unexpected character '{c}'"))),
         })
     }
@@ -118,7 +122,6 @@ impl<'a> Lexer<'a> {
     }
 
     fn expect(&mut self, c: char) -> Result<(), ParseError> {
-        self.skip_whitespace();
         let p = self
             .peek()
             .ok_or_else(|| self.error(format!("expected `{c}`, got EOF")))?;
@@ -141,6 +144,30 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn parse_ident(&mut self) -> Token {
+        let ident = self.identifier();
+        match ident.as_str() {
+            "clear" => Token::Clear,
+            "return" => Token::Return,
+            "bcd" => Token::Bcd,
+            "save" => Token::Save,
+            "load" => Token::Load,
+            "sprite" => Token::Sprite,
+            "jump" => Token::Jump,
+            "jump0" => Token::Jump0,
+            "if" => Token::If,
+            "then" => Token::Then,
+            "else" => Token::Else,
+            "begin" => Token::Begin,
+            "end" => Token::End,
+            "loop" => Token::Loop,
+            "again" => Token::Again,
+            "random" => Token::Random,
+            "key" => Token::Key,
+            _ => Token::Ident(ident),
+        }
+    }
+
     fn identifier(&mut self) -> String {
         let mut identifier = String::new();
 
@@ -156,19 +183,57 @@ impl<'a> Lexer<'a> {
         identifier
     }
 
-    fn number(&mut self) -> String {
-        let mut number = String::new();
+    // Parses u16 number
+    fn number(&mut self) -> Result<Token, ParseError> {
+        let start = self.pos;
+
+        let negative = if self.consume('-') { true } else { false };
+
+        let (base, digit_start) = if self.consume('0') {
+            match self.peek() {
+                Some('x') | Some('X') => {
+                    self.advance();
+                    (16, self.pos)
+                }
+                Some('b') | Some('B') => {
+                    self.advance();
+                    (2, self.pos)
+                }
+                // 01 -> 1, no problem!
+                _ => (10, self.pos - 1),
+            }
+        } else {
+            (10, self.pos)
+        };
 
         while let Some(c) = self.peek() {
-            if c.is_ascii_digit() {
-                number.push(c);
+            if c.is_digit(base) {
                 self.advance();
             } else {
                 break;
             }
         }
 
-        number
+        if self.pos == digit_start {
+            return Err(ParseError {
+                pos: start,
+                message: "Expected digits".into(),
+            });
+        }
+
+        let text = &self.input[digit_start..self.pos];
+
+        let number = u16::from_str_radix(text, base)
+            .map_err(|_| self.error("Number does not fit in u16"))?;
+        if negative {
+            if number > u8::MAX as u16 {
+                Err(self.error("Negative number would overflow"))
+            } else {
+                Ok(Token::Number(256 - number))
+            }
+        } else {
+            Ok(Token::Number(number))
+        }
     }
 
     fn error(&mut self, message: impl Into<String>) -> ParseError {
