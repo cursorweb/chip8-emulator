@@ -10,7 +10,7 @@ impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
         Self { input, pos: 0 }
     }
-    pub fn tokenize(mut self) -> Result<Vec<Token>, ParseError> {
+    pub fn lex(mut self) -> Result<Vec<Token>, ParseError> {
         let mut tokens = Vec::new();
 
         loop {
@@ -31,7 +31,7 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
 
         if self.peek().is_some_and(|x| x.is_ascii_digit()) {
-            return Ok(self.number()?);
+            return Ok(self.number(false)?);
         } else if self.peek().is_some_and(|x| x.is_ascii_alphabetic()) {
             return Ok(self.parse_ident());
         }
@@ -43,7 +43,19 @@ impl<'a> Lexer<'a> {
         Ok(match c {
             // punctuation
             ';' => Token::Semi,
-            ':' => Token::Colon,
+            ':' => {
+                if self.consume('=') {
+                    Token::AssignEq
+                } else if self.peek().is_some_and(|x| x.is_ascii_alphabetic()) {
+                    let name = self.identifier();
+                    match name.as_str() {
+                        "alias" => Token::Alias,
+                        _ => return Err(self.error(format!("Unknown directive {name}"))),
+                    }
+                } else {
+                    Token::Colon
+                }
+            }
 
             // operators
             '=' => {
@@ -58,8 +70,13 @@ impl<'a> Lexer<'a> {
                 Token::PlusEq
             }
             '-' => {
-                self.expect('=')?;
-                Token::MinusEq
+                if self.consume('=') {
+                    Token::MinusEq
+                } else if self.peek().is_some_and(|x| x.is_ascii_digit()) {
+                    self.number(true)?
+                } else {
+                    Token::Minus
+                }
             }
             '!' => {
                 self.expect('=')?;
@@ -112,8 +129,8 @@ impl<'a> Lexer<'a> {
         Some(c)
     }
 
-    fn consume(&mut self, expected: char) -> bool {
-        if self.peek() == Some(expected) {
+    fn consume(&mut self, c: char) -> bool {
+        if self.peek() == Some(c) {
             self.advance();
             true
         } else {
@@ -138,6 +155,10 @@ impl<'a> Lexer<'a> {
         while let Some(c) = self.peek() {
             if c.is_whitespace() {
                 self.advance();
+            } else if c == '#' {
+                while self.peek().is_some_and(|x| x != '\n') {
+                    self.advance();
+                }
             } else {
                 break;
             }
@@ -147,12 +168,12 @@ impl<'a> Lexer<'a> {
     fn parse_ident(&mut self) -> Token {
         let ident = self.identifier();
         match ident.as_str() {
-            "clear" => Token::Clear,
+            "clear" | "cls" => Token::Clear,
             "return" => Token::Return,
             "bcd" => Token::Bcd,
             "save" => Token::Save,
             "load" => Token::Load,
-            "sprite" => Token::Sprite,
+            "sprite" | "draw" => Token::Sprite,
             "jump" => Token::Jump,
             "jump0" => Token::Jump0,
             "if" => Token::If,
@@ -164,7 +185,17 @@ impl<'a> Lexer<'a> {
             "again" => Token::Again,
             "random" => Token::Random,
             "key" => Token::Key,
-            _ => Token::Ident(ident),
+            "i" => Token::I,
+            "buzzer" => Token::Buzzer,
+            "delay" => Token::Delay,
+            v => match v
+                .to_lowercase()
+                .strip_prefix('v')
+                .and_then(|n| u8::from_str_radix(n, 16).ok())
+            {
+                Some(n @ 0..=15) => Token::V(n),
+                _ => Token::Ident(ident),
+            },
         }
     }
 
@@ -184,10 +215,8 @@ impl<'a> Lexer<'a> {
     }
 
     // Parses u16 number
-    fn number(&mut self) -> Result<Token, ParseError> {
+    fn number(&mut self, negative: bool) -> Result<Token, ParseError> {
         let start = self.pos;
-
-        let negative = if self.consume('-') { true } else { false };
 
         let (base, digit_start) = if self.consume('0') {
             match self.peek() {

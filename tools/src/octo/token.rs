@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum Token {
     // Registers / literals
     Register(u8),
@@ -5,8 +6,8 @@ pub enum Token {
     Ident(String),
 
     // Directives
-    /// :alias x v1
-    Alias(String, u8),
+    /// :alias
+    Alias,
 
     // Keywords / Instructions
     Clear,
@@ -30,9 +31,18 @@ pub enum Token {
     Random,
     Key,
 
+    // Registers
+    // Vx
+    V(u8),
+    // I
+    I,
+    Buzzer,
+    Delay,
+
     // Punctuation
     Colon,
     Semi,
+    Minus,
 
     // Operators
     /// :=

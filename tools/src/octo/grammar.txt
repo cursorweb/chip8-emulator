@@ -1,0 +1,12 @@
+S -> stmt* EOF
+stmt -> instr | alias | control
+
+instr -> "return" | "clear" <> "cls" | "bcd" IDENT
+       | "save" IDENT | "load" IDENT | "sprite" <> "draw" IDENT IDENT NUM
+       | "jump" N | "jump0" N
+
+alias -> ":alias" IDENT REGISTER
+
+control -> assignment
+
+assignment -> "delay" ":=" IDENT | 

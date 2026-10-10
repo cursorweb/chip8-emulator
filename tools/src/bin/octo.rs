@@ -4,6 +4,8 @@ use std::{
     path::Path,
 };
 
+use tools::octo::Lexer;
+
 fn main() {
     let file = std::env::args().nth(1).expect("Usage: asm <file>");
     let mut source = String::new();
@@ -21,6 +23,14 @@ fn main() {
         .unwrap();
 
     output_file.write(b"").unwrap();
+
+    let lexer = Lexer::new(&source);
+    let out = lexer.lex();
+
+    match out {
+        Ok(v) => println!("{v:#?}"),
+        Err(e) => e.show(&source),
+    }
 
     // for token in tokens {
     //     let bytes = token.to_bytes(&labels);
