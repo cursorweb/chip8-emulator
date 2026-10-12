@@ -1,12 +1,49 @@
-S -> stmt* EOF
-stmt -> instr | alias | control
+S -> decl* EOF
+decl -> instr | alias | const
+      | stmt
 
-instr -> "return" | "clear" <> "cls" | "bcd" IDENT
-       | "save" IDENT | "load" IDENT | "sprite" <> "draw" IDENT IDENT NUM
-       | "jump" N | "jump0" N
+instr -> "return"
+       | ( "clear" | "cls" )
+       | "bcd" reg
+       | "save" reg
+       | "load" reg
+       | ( "sprite" | "draw" ) reg reg num
+       | "jump" num
+       | "jump0" num
 
 alias -> ":alias" IDENT REGISTER
+const -> ":const" IDENT NUM
+reg -> REGISTER | IDENT
+num -> NUM | IDENT
 
-control -> assignment
+stmt -> assignment | ifstmt | loopstmt | whilestmt
 
-assignment -> "delay" ":=" IDENT | 
+assignment -> "delay" ":=" reg
+            | "buzzer" ":=" reg
+            | "i" ":=" num         # Set i to NUM
+            | "i" ":=" "hex" reg   # eg i := hex v0, v0 := 0xF sets i to font character F sprite
+            | "i" "+=" reg
+            | reg ":=" reg
+            | reg ":=" num
+            | reg ":=" "random" num
+            | reg ":=" "delay"
+            | reg ":=" "key"
+            | reg "+=" ( num | reg )
+            | reg "-=" ( num | reg ) # subf: vx = vx - vy
+            | reg "=-" reg           # subnf: vx = vy - vx
+            | reg "|=" reg
+            | reg "&=" reg
+            | reg "^=" reg
+            | reg ">>=" reg
+            | reg "<<=" reg
+
+ifstmt -> "if" comparison "then" assignment
+        | "if" comparison "begin" stmt* ( "else" stmt* )? "end"
+loopstmt -> "loop" stmt* "again" # NOTE! Again is a statement that jumps back to the loop start. (Semantic + Real use)
+whilestmt -> "while" comparison  # NOTE! This acts more like a break
+
+comparison -> reg "==" ( num | reg )
+            | reg "!=" ( num | reg )
+            | reg "key"
+            | reg "-" "key"
+            | reg ( ">" | "<" | ">=" | "<=" ) ( num | reg )

@@ -50,6 +50,7 @@ impl<'a> Lexer<'a> {
                     let name = self.identifier();
                     match name.as_str() {
                         "alias" => Token::Alias,
+                        "const" => Token::Const,
                         _ => return Err(self.error(format!("Unknown directive {name}"))),
                     }
                 } else {
@@ -183,6 +184,7 @@ impl<'a> Lexer<'a> {
             "end" => Token::End,
             "loop" => Token::Loop,
             "again" => Token::Again,
+            "while" => Token::While,
             "random" => Token::Random,
             "key" => Token::Key,
             "i" => Token::I,

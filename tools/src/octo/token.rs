@@ -8,6 +8,8 @@ pub enum Token {
     // Directives
     /// :alias
     Alias,
+    /// :const
+    Const,
 
     // Keywords / Instructions
     Clear,
@@ -27,6 +29,7 @@ pub enum Token {
 
     Loop,
     Again,
+    While,
 
     Random,
     Key,
