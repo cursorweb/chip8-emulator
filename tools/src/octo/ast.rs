@@ -20,7 +20,7 @@ pub enum Stmt {
     UnaryStmt(TType, Reg),
     /// `jump` or `jump0`
     JumpStmt(TType, Num),
-    Draw(Reg, Reg, Num),
+    Sprite(Reg, Reg, Num),
     Alias(String, Reg),
     Const(String, Num),
     ExprStmt(Expr),

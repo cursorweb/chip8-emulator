@@ -1,3 +1,9 @@
 # my code:
-return
+clear
+bcd v0
+save v0
+save my_identifier
+sprite x y 5
+sprite x v2 height
+jump 5
 return

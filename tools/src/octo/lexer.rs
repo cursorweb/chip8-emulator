@@ -195,7 +195,7 @@ impl<'a> Lexer<'a> {
                 .strip_prefix('v')
                 .and_then(|n| u8::from_str_radix(n, 16).ok())
             {
-                Some(n @ 0..=15) => TType::V(n),
+                Some(n @ 0..=15) => TType::Register(n),
                 _ => TType::Ident(ident),
             },
         }

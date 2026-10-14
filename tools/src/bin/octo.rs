@@ -40,7 +40,10 @@ fn main() {
     let parser = Parser::new(tokens);
     let ast = parser.parse();
 
-    println!("{:?}", ast);
+    match ast {
+        Ok(v) => println!("{v:?}"),
+        Err(e) => e.show(&source),
+    }
 
     // for token in tokens {
     //     let bytes = token.to_bytes(&labels);

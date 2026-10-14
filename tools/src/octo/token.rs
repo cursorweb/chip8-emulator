@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub ttype: TType,
     pub pos: usize,
@@ -10,9 +10,10 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TType {
     // Registers / literals
+    /// Vx
     Register(u8),
     Number(u16),
     Ident(String),
@@ -47,8 +48,6 @@ pub enum TType {
     Key,
 
     // Registers
-    // Vx
-    V(u8),
     // I
     I,
     Buzzer,
