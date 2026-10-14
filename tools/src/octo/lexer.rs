@@ -1,4 +1,4 @@
-use super::token::Token;
+use super::token::{TType, Token};
 use crate::asmparser::ParseError;
 
 pub struct Lexer<'a> {
@@ -14,10 +14,10 @@ impl<'a> Lexer<'a> {
         let mut tokens = Vec::new();
 
         loop {
-            let token = self.next_token()?;
-            let done = matches!(token, Token::Eof);
+            let ttype = self.next_token()?;
+            let done = matches!(ttype, TType::Eof);
 
-            tokens.push(token);
+            tokens.push(Token::new(ttype, self.pos));
 
             if done {
                 break;
@@ -27,7 +27,7 @@ impl<'a> Lexer<'a> {
         Ok(tokens)
     }
 
-    pub fn next_token(&mut self) -> Result<Token, ParseError> {
+    pub fn next_token(&mut self) -> Result<TType, ParseError> {
         self.skip_whitespace();
 
         if self.peek().is_some_and(|x| x.is_ascii_digit()) {
@@ -37,83 +37,83 @@ impl<'a> Lexer<'a> {
         }
 
         let Some(c) = self.advance() else {
-            return Ok(Token::Eof);
+            return Ok(TType::Eof);
         };
 
         Ok(match c {
             // punctuation
-            ';' => Token::Semi,
+            ';' => TType::Semi,
             ':' => {
                 if self.consume('=') {
-                    Token::AssignEq
+                    TType::AssignEq
                 } else if self.peek().is_some_and(|x| x.is_ascii_alphabetic()) {
                     let name = self.identifier();
                     match name.as_str() {
-                        "alias" => Token::Alias,
-                        "const" => Token::Const,
+                        "alias" => TType::Alias,
+                        "const" => TType::Const,
                         _ => return Err(self.error(format!("Unknown directive {name}"))),
                     }
                 } else {
-                    Token::Colon
+                    TType::Colon
                 }
             }
 
             // operators
             '=' => {
                 if self.consume('=') {
-                    Token::EqEq
+                    TType::EqEq
                 } else {
-                    Token::AssignEq
+                    TType::AssignEq
                 }
             }
             '+' => {
                 self.expect('=')?;
-                Token::PlusEq
+                TType::PlusEq
             }
             '-' => {
                 if self.consume('=') {
-                    Token::MinusEq
+                    TType::MinusEq
                 } else if self.peek().is_some_and(|x| x.is_ascii_digit()) {
                     self.number(true)?
                 } else {
-                    Token::Minus
+                    TType::Minus
                 }
             }
             '!' => {
                 self.expect('=')?;
-                Token::NotEq
+                TType::NotEq
             }
             '<' => {
                 if self.consume('=') {
-                    Token::LessEq
+                    TType::LessEq
                 } else if self.consume('<') {
                     self.expect('=')?;
-                    Token::ShlEq
+                    TType::ShlEq
                 } else {
-                    Token::Less
+                    TType::Less
                 }
             }
             '>' => {
                 if self.consume('=') {
-                    Token::GreaterEq
+                    TType::GreaterEq
                 } else if self.consume('>') {
                     self.expect('=')?;
-                    Token::ShrEq
+                    TType::ShrEq
                 } else {
-                    Token::Greater
+                    TType::Greater
                 }
             }
             '|' => {
                 self.expect('=')?;
-                Token::OrEq
+                TType::OrEq
             }
             '&' => {
                 self.expect('=')?;
-                Token::AndEq
+                TType::AndEq
             }
             '^' => {
                 self.expect('=')?;
-                Token::XorEq
+                TType::XorEq
             }
 
             _ => return Err(self.error(format!("Unexpected character '{c}'"))),
@@ -166,37 +166,37 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn parse_ident(&mut self) -> Token {
+    fn parse_ident(&mut self) -> TType {
         let ident = self.identifier();
         match ident.as_str() {
-            "clear" | "cls" => Token::Clear,
-            "return" => Token::Return,
-            "bcd" => Token::Bcd,
-            "save" => Token::Save,
-            "load" => Token::Load,
-            "sprite" | "draw" => Token::Sprite,
-            "jump" => Token::Jump,
-            "jump0" => Token::Jump0,
-            "if" => Token::If,
-            "then" => Token::Then,
-            "else" => Token::Else,
-            "begin" => Token::Begin,
-            "end" => Token::End,
-            "loop" => Token::Loop,
-            "again" => Token::Again,
-            "while" => Token::While,
-            "random" => Token::Random,
-            "key" => Token::Key,
-            "i" => Token::I,
-            "buzzer" => Token::Buzzer,
-            "delay" => Token::Delay,
+            "clear" | "cls" => TType::Clear,
+            "return" => TType::Return,
+            "bcd" => TType::Bcd,
+            "save" => TType::Save,
+            "load" => TType::Load,
+            "sprite" | "draw" => TType::Sprite,
+            "jump" => TType::Jump,
+            "jump0" => TType::Jump0,
+            "if" => TType::If,
+            "then" => TType::Then,
+            "else" => TType::Else,
+            "begin" => TType::Begin,
+            "end" => TType::End,
+            "loop" => TType::Loop,
+            "again" => TType::Again,
+            "while" => TType::While,
+            "random" => TType::Random,
+            "key" => TType::Key,
+            "i" => TType::I,
+            "buzzer" => TType::Buzzer,
+            "delay" => TType::Delay,
             v => match v
                 .to_lowercase()
                 .strip_prefix('v')
                 .and_then(|n| u8::from_str_radix(n, 16).ok())
             {
-                Some(n @ 0..=15) => Token::V(n),
-                _ => Token::Ident(ident),
+                Some(n @ 0..=15) => TType::V(n),
+                _ => TType::Ident(ident),
             },
         }
     }
@@ -217,7 +217,7 @@ impl<'a> Lexer<'a> {
     }
 
     // Parses u16 number
-    fn number(&mut self, negative: bool) -> Result<Token, ParseError> {
+    fn number(&mut self, negative: bool) -> Result<TType, ParseError> {
         let start = self.pos;
 
         let (base, digit_start) = if self.consume('0') {
@@ -260,10 +260,10 @@ impl<'a> Lexer<'a> {
             if number > u8::MAX as u16 {
                 Err(self.error("Negative number would overflow"))
             } else {
-                Ok(Token::Number(256 - number))
+                Ok(TType::Number(256 - number))
             }
         } else {
-            Ok(Token::Number(number))
+            Ok(TType::Number(number))
         }
     }
 

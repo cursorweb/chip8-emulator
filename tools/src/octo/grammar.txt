@@ -10,6 +10,7 @@ instr -> "return"
        | ( "sprite" | "draw" ) reg reg num
        | "jump" num
        | "jump0" num
+       | again
 
 alias -> ":alias" IDENT REGISTER
 const -> ":const" IDENT NUM
@@ -37,9 +38,9 @@ assignment -> "delay" ":=" reg
             | reg ">>=" reg
             | reg "<<=" reg
 
-ifstmt -> "if" comparison "then" assignment
+ifstmt -> "if" comparison "then" stmt
         | "if" comparison "begin" stmt* ( "else" stmt* )? "end"
-loopstmt -> "loop" stmt* "again" # NOTE! Again is a statement that jumps back to the loop start. (Semantic + Real use)
+loopstmt -> "loop" stmt* again # NOTE! Again is a statement that jumps back to the loop start. (Semantic + Real use)
 whilestmt -> "while" comparison  # NOTE! This acts more like a break
 
 comparison -> reg "==" ( num | reg )

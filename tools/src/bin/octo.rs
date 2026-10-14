@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use tools::octo::Lexer;
+use tools::octo::{Lexer, Parser};
 
 fn main() {
     let file = std::env::args().nth(1).expect("Usage: asm <file>");
@@ -27,10 +27,20 @@ fn main() {
     let lexer = Lexer::new(&source);
     let out = lexer.lex();
 
-    match out {
-        Ok(v) => println!("{v:#?}"),
-        Err(e) => e.show(&source),
-    }
+    let tokens = match out {
+        Ok(v) => v,
+        Err(e) => {
+            e.show(&source);
+            return;
+        }
+    };
+
+    println!("{:?}", tokens);
+
+    let parser = Parser::new(tokens);
+    let ast = parser.parse();
+
+    println!("{:?}", ast);
 
     // for token in tokens {
     //     let bytes = token.to_bytes(&labels);

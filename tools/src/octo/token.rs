@@ -1,5 +1,17 @@
 #[derive(Debug)]
-pub enum Token {
+pub struct Token {
+    pub ttype: TType,
+    pub pos: usize,
+}
+
+impl Token {
+    pub fn new(ttype: TType, pos: usize) -> Self {
+        Self { ttype, pos }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TType {
     // Registers / literals
     Register(u8),
     Number(u16),
