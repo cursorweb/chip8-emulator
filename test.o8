@@ -1,9 +1,10 @@
 # my code:
-clear
-bcd v0
-save v0
-save my_identifier
-sprite x y 5
-sprite x v2 height
-jump 5
-return
+:alias x v1
+:alias y v2
+:const t 3
+
+if x == 3 then
+    return
+
+if y == t then
+    draw v1 y 3

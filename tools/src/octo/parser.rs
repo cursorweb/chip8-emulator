@@ -1,13 +1,14 @@
 use crate::{
     asmparser::ParseError,
     octo::{
-        ast::{Num, Reg, Stmt},
+        ast::{Decl, Stmt, Val},
         token::TType,
     },
 };
 
 use super::token::Token;
 
+type DeclResult = Result<Decl, ParseError>;
 type StmtResult = Result<Stmt, ParseError>;
 
 pub struct Parser {
@@ -20,14 +21,30 @@ impl Parser {
         Self { tokens, pos: 0 }
     }
 
-    pub fn parse(mut self) -> Result<Vec<Stmt>, ParseError> {
+    pub fn parse(mut self) -> Result<Vec<Decl>, ParseError> {
         let mut out = Vec::new();
 
         while self.is_valid() {
-            out.push(self.stmt()?);
+            out.push(self.decl()?);
         }
 
         Ok(out)
+    }
+
+    fn decl(&mut self) -> DeclResult {
+        Ok(if self.consume(TType::Alias) {
+            match self.advance().ttype {
+                TType::Ident(s) => Decl::Alias(s, self.val()?),
+                _ => return Err(self.error(format!("Expected name but got {}", self.peek().ttype))),
+            }
+        } else if self.consume(TType::Const) {
+            match self.advance().ttype {
+                TType::Ident(s) => Decl::Const(s.clone(), self.val()?),
+                _ => return Err(self.error(format!("Expected name but got {}", self.peek().ttype))),
+            }
+        } else {
+            Decl::Stmt(self.stmt()?)
+        })
     }
 
     fn stmt(&mut self) -> StmtResult {
@@ -38,45 +55,65 @@ impl Parser {
         } else if self.consume(TType::Again) {
             Stmt::Again
         } else if self.consumes(&[TType::Bcd, TType::Save, TType::Load]) {
-            Stmt::UnaryStmt(self.prev().ttype, self.reg()?)
+            Stmt::UnaryStmt(self.prev().ttype, self.val()?)
         } else if self.consume(TType::Sprite) {
-            Stmt::Sprite(self.reg()?, self.reg()?, self.num()?)
+            Stmt::Sprite(self.val()?, self.val()?, self.val()?)
         } else if self.consumes(&[TType::Jump, TType::Jump0]) {
-            Stmt::JumpStmt(self.prev().ttype, self.num()?)
+            Stmt::JumpStmt(self.prev().ttype, self.val()?)
+        } else if self.consume(TType::If) {
+            self.if_stmt()?
         } else {
+            println!("{}", self.peek().ttype);
             todo!()
         })
     }
 
-    fn reg(&mut self) -> Result<Reg, ParseError> {
-        match &self.peek().ttype {
-            TType::Register(v) => {
-                let out = Reg::Val(*v);
-                self.advance();
-                Ok(out)
-            }
-            TType::Ident(x) => {
-                let out = Reg::Ident(x.clone());
-                self.advance();
-                Ok(out)
-            }
-            _ => Err(self.error("Expected register")),
-        }
+    fn if_stmt(&mut self) -> StmtResult {
+        let comp = self.comparison()?;
+        self.expect(TType::Then)?;
+        let stmt = self.stmt()?;
+        Ok(Stmt::IfStmt(Box::new(comp), Box::new(stmt)))
     }
 
-    fn num(&mut self) -> Result<Num, ParseError> {
-        match &self.peek().ttype {
-            TType::Number(v) => {
-                let out = Num::Val(*v);
-                self.advance();
-                Ok(out)
-            }
-            TType::Ident(x) => {
-                let out = Num::Ident(x.clone());
-                self.advance();
-                Ok(out)
-            }
-            _ => Err(self.error("Expected number")),
+    fn comparison(&mut self) -> StmtResult {
+        let reg = self.val()?;
+        Ok(
+            if self.consumes(&[
+                TType::EqEq,
+                TType::NotEq,
+                TType::Greater,
+                TType::Less,
+                TType::GreaterEq,
+                TType::LessEq,
+            ]) {
+                let tok = self.prev();
+                Stmt::Binary(reg, tok.ttype, self.val()?)
+            } else if self.consume(TType::Key) {
+                Stmt::RegKey(reg)
+            } else if self.consume(TType::Minus) {
+                self.expect(TType::Key)?;
+                Stmt::RegNotKey(reg)
+            } else {
+                return Err(self.error(format!("Unexpcted token {}", self.peek().ttype)));
+            },
+        )
+    }
+
+    /// Is it a register or a number?
+    fn val(&mut self) -> Result<Val, ParseError> {
+        Ok(match self.advance().ttype {
+            TType::Register(r) => Val::Reg(r),
+            TType::Number(n) => Val::Num(n),
+            TType::Ident(i) => Val::Ident(i),
+            t => return Err(self.error(format!("Expected register but got {t}"))),
+        })
+    }
+
+    fn expect(&mut self, ttype: TType) -> Result<(), ParseError> {
+        if self.consume(ttype.clone()) {
+            Ok(())
+        } else {
+            Err(self.error(format!("Expected {ttype} but got {}", self.peek().ttype)))
         }
     }
 
@@ -109,13 +146,12 @@ impl Parser {
         &self.tokens[self.pos]
     }
 
-    fn advance(&mut self) -> &Token {
+    fn advance(&mut self) -> Token {
         if self.is_valid() {
             self.pos += 1;
         }
 
-        // return EOF if is at end
-        self.peek()
+        self.prev()
     }
 
     fn is_valid(&self) -> bool {

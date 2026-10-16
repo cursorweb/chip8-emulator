@@ -1,68 +1,70 @@
 use crate::octo::token::TType;
 
 #[derive(Debug)]
-pub enum Reg {
+/// For some grammars, with aliases
+/// It is impossible to tell what it should be
+/// So, it's up to the emitter to verify for us
+/// Sometimes it's possible parse-time, but we don't care
+/// since we'll have to verify it later anyways
+pub enum Val {
     Ident(String),
-    Val(u8),
+    Num(u16),
+    Reg(u8),
 }
 
 #[derive(Debug)]
-pub enum Num {
-    Ident(String),
-    Val(u16),
+pub enum Decl {
+    Alias(String, Val),
+    Const(String, Val),
+    Stmt(Stmt),
 }
 
 #[derive(Debug)]
 pub enum Stmt {
+    // Instructions
     Return,
     Clear,
     /// `bcd reg`, etc.
-    UnaryStmt(TType, Reg),
+    UnaryStmt(TType, Val),
     /// `jump` or `jump0`
-    JumpStmt(TType, Num),
-    Sprite(Reg, Reg, Num),
-    Alias(String, Reg),
-    Const(String, Num),
-    ExprStmt(Expr),
+    JumpStmt(TType, Val),
+    Sprite(Val, Val, Val),
     Again,
-}
 
-#[derive(Debug)]
-pub enum Expr {
     // assignment
     /// `delay := reg`
-    SetDelay(Reg),
+    SetDelay(Val),
     /// `buzzer := reg`
-    SetBuzzer(Reg),
+    SetBuzzer(Val),
     /// `i := num`
-    SetINum(Num),
+    SetINum(Val),
     /// `i := hex reg`
-    SetIFont(Reg),
+    SetIFont(Val),
     /// `i += reg`
-    IncrIReg(Reg),
+    IncrIReg(Val),
     /// `reg := random num`
-    SetRegRand(Reg, Num),
+    SetRegRand(Val, Val),
     /// `reg := delay`
-    SetRegDelay(Reg),
+    SetRegDelay(Val),
     /// `reg := key`
-    SetRegKey(Reg),
+    SetRegKey(Val),
     /// `reg := num` or `reg += num`
     /// also `reg == num`
-    BinaryRegNum(Reg, TType, Num),
-    BinaryRegReg(Reg, TType, Reg),
+    /// check validation during assembly time based on type
+    Binary(Val, TType, Val),
 
     // control flow
     /// if expr then expr
-    IfStmt(Box<Expr>, Box<Stmt>),
+    IfStmt(Box<Stmt>, Box<Stmt>),
     /// "if" expr "begin" stmt* ( "else" stmt* )? "end"
-    IfStmtBlock(Box<Expr>, Vec<Stmt>, Option<Vec<Stmt>>),
+    IfStmtBlock(Box<Stmt>, Vec<Stmt>, Option<Vec<Decl>>),
     /// "loop" stmt* "again" (again MUST be the last stmt)
-    LoopStmt(Vec<Stmt>),
-    WhileStmt(Box<Expr>),
+    LoopStmt(Vec<Decl>),
+    WhileStmt(Box<Stmt>),
 
     // comparison
     /// if v0 key
-    RegKey(Reg),
+    RegKey(Val),
     /// if v0 -key
-    RegNotKey(Reg),
+    RegNotKey(Val),
 }

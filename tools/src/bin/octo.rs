@@ -35,13 +35,11 @@ fn main() {
         }
     };
 
-    println!("{:?}", tokens);
-
     let parser = Parser::new(tokens);
     let ast = parser.parse();
 
     match ast {
-        Ok(v) => println!("{v:?}"),
+        Ok(v) => println!("{v:#?}"),
         Err(e) => e.show(&source),
     }
 

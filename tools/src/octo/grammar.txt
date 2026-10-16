@@ -1,6 +1,16 @@
 S -> decl* EOF
-decl -> instr | alias | const
+decl -> alias | const
       | stmt
+
+
+alias -> ":alias" IDENT REGISTER
+const -> ":const" IDENT NUM
+reg -> REGISTER | IDENT
+num -> NUM | IDENT
+
+stmt -> ifstmt | loopstmt | whilestmt
+      | instr
+      | assignment
 
 instr -> "return"
        | ( "clear" | "cls" )
@@ -11,13 +21,6 @@ instr -> "return"
        | "jump" num
        | "jump0" num
        | again
-
-alias -> ":alias" IDENT REGISTER
-const -> ":const" IDENT NUM
-reg -> REGISTER | IDENT
-num -> NUM | IDENT
-
-stmt -> assignment | ifstmt | loopstmt | whilestmt
 
 assignment -> "delay" ":=" reg
             | "buzzer" ":=" reg
