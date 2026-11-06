@@ -62,6 +62,8 @@ impl<'a> Lexer<'a> {
             '=' => {
                 if self.consume('=') {
                     TType::EqEq
+                } else if self.consume('-') {
+                    TType::EqMinus
                 } else {
                     TType::AssignEq
                 }
@@ -187,6 +189,7 @@ impl<'a> Lexer<'a> {
             "while" => TType::While,
             "random" => TType::Random,
             "key" => TType::Key,
+            "hex" => TType::Hex,
             "i" => TType::I,
             "buzzer" => TType::Buzzer,
             "delay" => TType::Delay,
@@ -218,6 +221,7 @@ impl<'a> Lexer<'a> {
 
     // Parses u16 number
     fn number(&mut self, negative: bool) -> Result<TType, ParseError> {
+        // TODO: multiple widths: u8, u16, etc.
         let start = self.pos;
 
         let (base, digit_start) = if self.consume('0') {

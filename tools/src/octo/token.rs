@@ -48,6 +48,7 @@ pub enum TType {
 
     Random,
     Key,
+    Hex,
 
     // Registers
     // I
@@ -67,6 +68,8 @@ pub enum TType {
     PlusEq,
     /// -=
     MinusEq,
+    /// =-
+    EqMinus,
     /// ==
     EqEq,
     /// !=
@@ -121,6 +124,7 @@ impl Display for TType {
             TType::While => write!(f, "while"),
             TType::Random => write!(f, "random"),
             TType::Key => write!(f, "key"),
+            TType::Hex => write!(f, "hex"),
             TType::I => write!(f, "i"),
             TType::Buzzer => write!(f, "buzzer"),
             TType::Delay => write!(f, "delay"),
@@ -130,6 +134,7 @@ impl Display for TType {
             TType::AssignEq => write!(f, "`=`"),
             TType::PlusEq => write!(f, "`+=`"),
             TType::MinusEq => write!(f, "`-=`"),
+            TType::EqMinus => write!(f, "`=-`"),
             TType::EqEq => write!(f, "`==`"),
             TType::NotEq => write!(f, "`!=`"),
             TType::Less => write!(f, "`<`"),

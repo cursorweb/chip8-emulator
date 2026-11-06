@@ -1,18 +1,19 @@
 S -> decl* EOF
-decl -> alias | const
+decl -> alias | const | label
       | stmt
-
 
 alias -> ":alias" IDENT REGISTER
 const -> ":const" IDENT NUM
+label -> ":" IDENT
 reg -> REGISTER | IDENT
 num -> NUM | IDENT
 
 stmt -> ifstmt | loopstmt | whilestmt
       | instr
       | assignment
+      | NUM         # literally just insert this into the binary
 
-instr -> "return"
+instr -> ( "return" | ";" )
        | ( "clear" | "cls" )
        | "bcd" reg
        | "save" reg
@@ -27,8 +28,7 @@ assignment -> "delay" ":=" reg
             | "i" ":=" num         # Set i to NUM
             | "i" ":=" "hex" reg   # eg i := hex v0, v0 := 0xF sets i to font character F sprite
             | "i" "+=" reg
-            | reg ":=" reg
-            | reg ":=" num
+            | reg ":=" ( num | reg )
             | reg ":=" "random" num
             | reg ":=" "delay"
             | reg ":=" "key"
@@ -41,7 +41,7 @@ assignment -> "delay" ":=" reg
             | reg ">>=" reg
             | reg "<<=" reg
 
-ifstmt -> "if" comparison "then" stmt
+ifstmt -> "if" comparison "then" # NOTE! this is really a seq
         | "if" comparison "begin" stmt* ( "else" stmt* )? "end"
 loopstmt -> "loop" stmt* again # NOTE! Again is a statement that jumps back to the loop start. (Semantic + Real use)
 whilestmt -> "while" comparison  # NOTE! This acts more like a break

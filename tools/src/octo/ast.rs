@@ -16,6 +16,7 @@ pub enum Val {
 pub enum Decl {
     Alias(String, Val),
     Const(String, Val),
+    Label(String),
     Stmt(Stmt),
 }
 
@@ -54,12 +55,12 @@ pub enum Stmt {
     Binary(Val, TType, Val),
 
     // control flow
-    /// if expr then expr
-    IfStmt(Box<Stmt>, Box<Stmt>),
+    /// if expr then
+    IfStmt(Box<Stmt>),
     /// "if" expr "begin" stmt* ( "else" stmt* )? "end"
     IfStmtBlock(Box<Stmt>, Vec<Stmt>, Option<Vec<Decl>>),
     /// "loop" stmt* "again" (again MUST be the last stmt)
-    LoopStmt(Vec<Decl>),
+    LoopStmt(Vec<Stmt>),
     WhileStmt(Box<Stmt>),
 
     // comparison
@@ -67,4 +68,7 @@ pub enum Stmt {
     RegKey(Val),
     /// if v0 -key
     RegNotKey(Val),
+
+    /// 0x67 word is 2 bytes
+    Literal(u16),
 }
