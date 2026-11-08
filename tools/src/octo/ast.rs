@@ -14,7 +14,9 @@ pub enum Val {
 
 #[derive(Debug)]
 pub enum Decl {
+    /// :alias x v0
     Alias(String, Val),
+    /// :const pi 3
     Const(String, Val),
     Label(String),
     Stmt(Stmt),
