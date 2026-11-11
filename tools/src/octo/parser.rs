@@ -64,7 +64,7 @@ impl Parser {
         } else if self.consume(TType::Sprite) {
             Stmt::Sprite(self.val()?, self.val()?, self.val()?)
         } else if self.consumes(&[TType::Jump, TType::Jump0]) {
-            Stmt::JumpStmt(self.prev().ttype, self.val()?)
+            Stmt::UnaryStmt(self.prev().ttype, self.val()?)
         } else if self.consume(TType::If) {
             self.if_stmt()?
         } else if self.consume(TType::Loop) {

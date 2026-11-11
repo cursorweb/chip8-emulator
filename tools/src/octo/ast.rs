@@ -29,8 +29,6 @@ pub enum Stmt {
     Clear,
     /// `bcd reg`, etc.
     UnaryStmt(TType, Val),
-    /// `jump` or `jump0`
-    JumpStmt(TType, Val),
     Sprite(Val, Val, Val),
     Again,
 
