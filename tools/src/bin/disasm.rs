@@ -2,6 +2,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     path::Path,
+    time::Instant,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -304,6 +305,7 @@ fn main() {
         .file_stem()
         .map_or(file.clone(), |v| v.to_string_lossy().to_string());
 
+    let start = Instant::now();
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
@@ -313,7 +315,7 @@ fn main() {
 
     let mut show_word = false;
 
-    for line in lines {
+    for line in &lines {
         let inst = if show_word {
             line.format_word()
         } else {
@@ -329,4 +331,10 @@ fn main() {
         file.write_all(format!("{:<30} # 0x{:x}\n", inst, line.pc).as_bytes())
             .unwrap();
     }
+
+    println!(
+        "Disassembled {} instructions in {:.2}secs",
+        lines.len(),
+        start.elapsed().as_secs_f32()
+    );
 }

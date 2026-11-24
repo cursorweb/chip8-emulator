@@ -24,6 +24,7 @@ enum SymbolVal {
 pub struct CodeGen {
     trees: Vec<Span<Decl>>,
     symbols: HashMap<String, SymbolVal>,
+    /// Addr should start at 0x200. This is because the program is loaded at 0x200
     addr: u16,
     out: Vec<Instr>,
     /// Every time you nest a loop, this stack stores the loop label addy
@@ -34,10 +35,28 @@ pub struct CodeGen {
 
 impl CodeGen {
     pub fn new(trees: Vec<Span<Decl>>) -> Self {
+        let symbols = HashMap::from([
+            ("OCTO_KEY_1".into(), SymbolVal::Num(0x1)),
+            ("OCTO_KEY_2".into(), SymbolVal::Num(0x2)),
+            ("OCTO_KEY_3".into(), SymbolVal::Num(0x3)),
+            ("OCTO_KEY_4".into(), SymbolVal::Num(0xC)),
+            ("OCTO_KEY_Q".into(), SymbolVal::Num(0x4)),
+            ("OCTO_KEY_W".into(), SymbolVal::Num(0x5)),
+            ("OCTO_KEY_E".into(), SymbolVal::Num(0x6)),
+            ("OCTO_KEY_R".into(), SymbolVal::Num(0xD)),
+            ("OCTO_KEY_A".into(), SymbolVal::Num(0x7)),
+            ("OCTO_KEY_S".into(), SymbolVal::Num(0x8)),
+            ("OCTO_KEY_D".into(), SymbolVal::Num(0x9)),
+            ("OCTO_KEY_F".into(), SymbolVal::Num(0xE)),
+            ("OCTO_KEY_Z".into(), SymbolVal::Num(0xA)),
+            ("OCTO_KEY_X".into(), SymbolVal::Num(0x0)),
+            ("OCTO_KEY_C".into(), SymbolVal::Num(0xB)),
+            ("OCTO_KEY_V".into(), SymbolVal::Num(0xF)),
+        ]);
         Self {
             trees,
-            symbols: HashMap::new(),
-            addr: 0,
+            symbols,
+            addr: 0x200,
             out: vec![],
             loop_stack: vec![],
             curr_pos: 0,
@@ -126,7 +145,7 @@ impl CodeGen {
             Stmt::SetRegRand(reg, num) => {
                 Instr::Rand(self.resolve_reg(reg)?, self.resolve_num_u8(num)?)
             }
-            Stmt::SetRegDelay(reg) => Instr::SetDelay(self.resolve_reg(reg)?),
+            Stmt::SetRegDelay(reg) => Instr::GetDelay(self.resolve_reg(reg)?),
             Stmt::SetRegKey(reg) => Instr::GetKey(self.resolve_reg(reg)?),
             Stmt::BinaryStmt(left, ttype, right) => self.binary(left, ttype, right)?,
             Stmt::IfStmt(comp) => self.if_stmt(comp)?,
@@ -307,6 +326,7 @@ impl CodeGen {
     fn expect_alias_is_num(&self, val: SymbolVal) -> Result<u16, ParseError> {
         match val {
             SymbolVal::Num(v) => Ok(v),
+            SymbolVal::Addr(v) => Ok(v),
             _ => Err(self.error(format!("Expected a number"))),
         }
     }
