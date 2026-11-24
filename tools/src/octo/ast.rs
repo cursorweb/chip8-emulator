@@ -13,6 +13,13 @@ pub enum Val {
 }
 
 #[derive(Debug)]
+/// A *span* is a region of source code corresponding to an AST node
+pub struct Span<T> {
+    pub val: T,
+    pub pos: usize,
+}
+
+#[derive(Debug)]
 pub enum Decl {
     /// :alias x v0
     Alias(String, Val),
@@ -56,13 +63,13 @@ pub enum Stmt {
 
     // control flow
     /// if <comparison> then
-    IfStmt(CompExpr),
+    IfStmt(Span<CompExpr>),
     /// "if" expr "begin" stmt* ( "else" stmt* )? "end"
     /// TODO: implement
-    IfStmtBlock(CompExpr, Vec<Stmt>, Option<Vec<Decl>>),
+    IfStmtBlock(Span<CompExpr>, Vec<Span<Stmt>>, Option<Vec<Span<Decl>>>),
     /// "loop" stmt* "again" (again MUST be the last stmt)
-    LoopStmt(Vec<Stmt>),
-    WhileStmt(CompExpr),
+    LoopStmt(Vec<Span<Stmt>>),
+    WhileStmt(Span<CompExpr>),
 
     /// 0x67 word is 2 bytes
     Literal(u16),

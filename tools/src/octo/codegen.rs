@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
+    asmparser::ParseError,
     instr::{Addr, Instr},
     octo::{
-        ast::{Decl, Stmt},
+        ast::{CompExpr, Decl, Span, Stmt},
         token::TType,
     },
 };
@@ -13,84 +14,89 @@ use super::ast::Val;
 /// Aliases/Consts/Addys all get put into the same
 /// lookup table
 #[derive(Clone, Copy)]
-enum AliasVal {
+enum SymbolVal {
     Reg(u8),
     Num(u16),
     Addr(u16),
 }
 
+/// TODO: add a forward pass to resolve things like loops, agains, whiles, as well as labels
 pub struct CodeGen {
-    trees: Vec<Decl>,
-    aliases: HashMap<String, AliasVal>,
+    trees: Vec<Span<Decl>>,
+    symbols: HashMap<String, SymbolVal>,
     addr: u16,
     out: Vec<Instr>,
+    /// Every time you nest a loop, this stack stores the loop label addy
+    loop_stack: Vec<u16>,
+    /// Current `span` of the AST node being looked at
+    curr_pos: usize,
 }
 
-// TODO: have line info?
-type GenError = String;
-
 impl CodeGen {
-    pub fn new(trees: Vec<Decl>) -> Self {
+    pub fn new(trees: Vec<Span<Decl>>) -> Self {
         Self {
             trees,
-            aliases: HashMap::new(),
+            symbols: HashMap::new(),
             addr: 0,
             out: vec![],
+            loop_stack: vec![],
+            curr_pos: 0,
         }
     }
 
-    pub fn gen_bytes(mut self) -> Result<Vec<Instr>, GenError> {
+    pub fn gen_bytes(mut self) -> Result<Vec<Instr>, ParseError> {
         for decl in std::mem::take(&mut self.trees) {
+            let decl = self.unwrap_span(decl);
             self.decl(decl)?;
         }
 
         Ok(self.out)
     }
 
-    fn decl(&mut self, decl: Decl) -> Result<(), GenError> {
+    fn decl(&mut self, decl: Decl) -> Result<(), ParseError> {
         match decl {
             Decl::Alias(alias_name, val) => {
                 let val = match val {
-                    Val::Ident(name) => match self.aliases.get(&name) {
-                        Some(v) => AliasVal::Reg(self.expect_alias_is_reg(*v)?),
+                    Val::Ident(name) => match self.symbols.get(&name) {
+                        Some(v) => SymbolVal::Reg(self.expect_alias_is_reg(*v)?),
                         None => {
-                            return Err(format!(
+                            return Err(self.error(format!(
                                 "Alias {alias_name} depends on another alias {name} which doesn't exist"
-                            ));
+                            )));
                         }
                     },
-                    Val::Reg(v) => AliasVal::Reg(v),
+                    Val::Reg(v) => SymbolVal::Reg(v),
                     Val::Num(_) => {
-                        return Err(format!(
+                        return Err(self.error(format!(
                             "Alias {alias_name} expects register but got number"
-                        ));
+                        )));
                     }
                 };
 
-                self.aliases.insert(alias_name, val);
+                self.symbols.insert(alias_name, val);
             }
             Decl::Const(const_name, val) => {
                 let val = match val {
-                    Val::Ident(name) => match self.aliases.get(&name) {
-                        Some(v) => AliasVal::Num(self.expect_alias_is_num(*v)?),
+                    Val::Ident(name) => match self.symbols.get(&name) {
+                        Some(v) => SymbolVal::Num(self.expect_alias_is_num(*v)?),
                         None => {
-                            return Err(format!(
+                            return Err(self.error(format!(
                                 "Constant {const_name} depends on another alias {name} which doesn't exist"
-                            ));
+                            )));
                         }
                     },
-                    Val::Num(v) => AliasVal::Num(v),
+                    Val::Num(v) => SymbolVal::Num(v),
                     Val::Reg(_) => {
-                        return Err(format!(
+                        return Err(self.error(format!(
                             "Constant {const_name} expects a number but got register"
-                        ));
+                        )));
                     }
                 };
 
-                self.aliases.insert(const_name, val);
+                self.symbols.insert(const_name, val);
             }
             Decl::Label(name) => {
-                self.aliases.insert(name, AliasVal::Addr(self.addr));
+                self.symbols.insert(name, SymbolVal::Addr(self.addr));
             }
             Decl::Stmt(stmt) => {
                 self.stmt(stmt)?;
@@ -100,13 +106,18 @@ impl CodeGen {
         Ok(())
     }
 
-    fn stmt(&mut self, stmt: Stmt) -> Result<(), GenError> {
-        self.emit(match stmt {
+    fn stmt(&mut self, stmt: Stmt) -> Result<(), ParseError> {
+        let instr = match stmt {
             Stmt::Return => Instr::Ret,
             Stmt::Clear => Instr::Cls,
             Stmt::UnaryStmt(ttype, val) => self.unary_stmt(ttype, val)?,
             Stmt::Sprite(vx, vy, n) => self.sprite(vx, vy, n)?,
-            Stmt::Again => todo!(),
+            Stmt::Again => Instr::J(Addr::Val(
+                *self
+                    .loop_stack
+                    .last()
+                    .ok_or(self.error("again can only be used to close loops"))?,
+            )),
             Stmt::SetDelay(reg) => Instr::SetDelay(self.resolve_reg(reg)?),
             Stmt::SetBuzzer(reg) => Instr::SetSound(self.resolve_reg(reg)?),
             Stmt::SetINum(val) => Instr::SetAddrI(Addr::Val(self.resolve_num(val)?)),
@@ -118,16 +129,17 @@ impl CodeGen {
             Stmt::SetRegDelay(reg) => Instr::SetDelay(self.resolve_reg(reg)?),
             Stmt::SetRegKey(reg) => Instr::GetKey(self.resolve_reg(reg)?),
             Stmt::BinaryStmt(left, ttype, right) => self.binary(left, ttype, right)?,
-            Stmt::IfStmt(stmt) => todo!(),
-            Stmt::IfStmtBlock(stmt, stmts, decls) => todo!(),
-            Stmt::LoopStmt(stmts) => todo!(),
-            Stmt::WhileStmt(stmt) => todo!(),
+            Stmt::IfStmt(comp) => self.if_stmt(comp)?,
+            Stmt::IfStmtBlock(_, _, _) => todo!(),
+            Stmt::LoopStmt(stmts) => return self.loop_stmt(stmts),
+            Stmt::WhileStmt(_) => todo!(),
             Stmt::Literal(val) => Instr::Word(val),
-        });
+        };
+        self.emit(instr);
         Ok(())
     }
 
-    fn unary_stmt(&self, ttype: TType, val: Val) -> Result<Instr, GenError> {
+    fn unary_stmt(&self, ttype: TType, val: Val) -> Result<Instr, ParseError> {
         Ok(match ttype {
             TType::Bcd => {
                 let reg = self.resolve_reg(val)?;
@@ -154,32 +166,23 @@ impl CodeGen {
         })
     }
 
-    fn sprite(&self, vx: Val, vy: Val, n: Val) -> Result<Instr, GenError> {
+    fn sprite(&self, vx: Val, vy: Val, n: Val) -> Result<Instr, ParseError> {
         let vx = self.resolve_reg(vx)?;
         let vy = self.resolve_reg(vy)?;
         let n = self.resolve_num(n)?;
         Ok(Instr::Draw(
             vx,
             vy,
-            n.try_into().map_err(|_| format!("Sprite too high: {n}"))?,
+            n.try_into()
+                .map_err(|_| self.error(format!("Sprite too high: {n}")))?,
         ))
     }
 
-    fn binary(&self, left: Val, ttype: TType, right: Val) -> Result<Instr, GenError> {
+    fn binary(&self, left: Val, ttype: TType, right: Val) -> Result<Instr, ParseError> {
         let left = self.resolve_reg(left)?;
         Ok(match ttype {
-            TType::AssignEq => match self.resolve_any(right)? {
-                AliasVal::Reg(right) => Instr::Set(left, right),
-                AliasVal::Num(right) | AliasVal::Addr(right) => {
-                    Instr::Seti(left, self.u16_to_u8(right)?)
-                }
-            },
-            TType::PlusEq => match self.resolve_any(right)? {
-                AliasVal::Reg(right) => Instr::Add(left, right),
-                AliasVal::Num(right) | AliasVal::Addr(right) => {
-                    Instr::Addi(left, self.u16_to_u8(right)?)
-                }
-            },
+            TType::AssignEq => self.resolve_binary(left, right, Instr::Set, Instr::Seti)?,
+            TType::PlusEq => self.resolve_binary(left, right, Instr::Add, Instr::Addi)?,
             TType::MinusEq => Instr::Subf(left, self.resolve_reg(right)?),
             TType::EqMinus => Instr::Subnf(left, self.resolve_reg(right)?),
             TType::OrEq => Instr::Or(left, self.resolve_reg(right)?),
@@ -191,29 +194,75 @@ impl CodeGen {
         })
     }
 
+    fn if_stmt(&mut self, comp: Span<CompExpr>) -> Result<Instr, ParseError> {
+        let comp = self.unwrap_span(comp);
+        Ok(match comp {
+            CompExpr::BinaryExpr(left, ttype, right) => {
+                let left = self.resolve_reg(left)?;
+                match ttype {
+                    TType::EqEq => self.resolve_binary(left, right, Instr::Seq, Instr::Seqi)?,
+                    TType::NotEq => self.resolve_binary(left, right, Instr::Sne, Instr::Snei)?,
+                    TType::Greater => todo!(),
+                    TType::Less => todo!(),
+                    TType::GreaterEq => todo!(),
+                    TType::LessEq => todo!(),
+                    _ => unreachable!("Shouldn't be able to reach {ttype}"),
+                }
+            }
+            CompExpr::RegKey(val) => Instr::Sk(self.resolve_reg(val)?),
+            CompExpr::RegNotKey(val) => Instr::Snk(self.resolve_reg(val)?),
+        })
+    }
+
+    fn loop_stmt(&mut self, stmts: Vec<Span<Stmt>>) -> Result<(), ParseError> {
+        self.loop_stack.push(self.addr);
+        for stmt in stmts {
+            let stmt = self.unwrap_span(stmt);
+            self.stmt(stmt)?;
+        }
+        self.loop_stack.pop();
+        Ok(())
+    }
+
     fn emit(&mut self, instr: Instr) {
         self.out.push(instr);
+        self.addr += 2;
+    }
+
+    fn resolve_binary(
+        &self,
+        reg: u8,
+        right: Val,
+        reg_op: impl FnOnce(u8, u8) -> Instr,
+        imm_op: impl FnOnce(u8, u8) -> Instr,
+    ) -> Result<Instr, ParseError> {
+        match self.resolve_any(right)? {
+            SymbolVal::Reg(right) => Ok(reg_op(reg, right)),
+            SymbolVal::Num(right) | SymbolVal::Addr(right) => {
+                Ok(imm_op(reg, self.u16_to_u8(right)?))
+            }
+        }
     }
 
     /// Get either `num` or `reg` as an AliasVal
-    fn resolve_any(&self, val: Val) -> Result<AliasVal, GenError> {
+    fn resolve_any(&self, val: Val) -> Result<SymbolVal, ParseError> {
         match val {
             Val::Ident(ident) => self
-                .aliases
+                .symbols
                 .get(&ident)
                 .ok_or_else(|| self.error(format!("Undefined alias {ident}")))
                 .copied(),
-            Val::Num(n) => Ok(AliasVal::Num(n)),
-            Val::Reg(r) => Ok(AliasVal::Reg(r)),
+            Val::Num(n) => Ok(SymbolVal::Num(n)),
+            Val::Reg(r) => Ok(SymbolVal::Reg(r)),
         }
     }
 
     /// Given a Val in AST, either typecheck it for reg, or lookup the value and then typecheck it
-    fn resolve_reg(&self, val: Val) -> Result<u8, GenError> {
+    fn resolve_reg(&self, val: Val) -> Result<u8, ParseError> {
         match val {
             Val::Ident(ident) => self.expect_alias_is_reg(
                 *self
-                    .aliases
+                    .symbols
                     .get(&ident)
                     .ok_or_else(|| self.error(format!("Undefined alias {ident}")))?,
             ),
@@ -223,11 +272,11 @@ impl CodeGen {
     }
 
     /// Given a Val in AST, either typecheck it for num, or lookup the value and then typecheck it
-    fn resolve_num(&self, val: Val) -> Result<u16, GenError> {
+    fn resolve_num(&self, val: Val) -> Result<u16, ParseError> {
         match val {
             Val::Ident(ident) => self.expect_alias_is_num(
                 *self
-                    .aliases
+                    .symbols
                     .get(&ident)
                     .ok_or_else(|| self.error(format!("Undefined alias {ident}")))?,
             ),
@@ -236,33 +285,41 @@ impl CodeGen {
         }
     }
 
-    fn resolve_num_u8(&self, val: Val) -> Result<u8, GenError> {
+    fn resolve_num_u8(&self, val: Val) -> Result<u8, ParseError> {
         let res = self.resolve_num(val)?;
         self.u16_to_u8(res)
     }
 
-    fn u16_to_u8(&self, res: u16) -> Result<u8, GenError> {
+    fn u16_to_u8(&self, res: u16) -> Result<u8, ParseError> {
         res.try_into()
-            .map_err(|_| format!("Number {res} too large (needs to be a byte)"))
+            .map_err(|_| self.error(format!("Number {res} too large (needs to be a byte)")))
     }
 
     /// Typecheck lookup value to ensure it is a register
-    fn expect_alias_is_reg(&self, val: AliasVal) -> Result<u8, GenError> {
+    fn expect_alias_is_reg(&self, val: SymbolVal) -> Result<u8, ParseError> {
         match val {
-            AliasVal::Reg(v) => Ok(v),
-            _ => Err(format!("Expected a register")),
+            SymbolVal::Reg(v) => Ok(v),
+            _ => Err(self.error(format!("Expected a register"))),
         }
     }
 
     /// Typecheck lookup value to ensure it is a number
-    fn expect_alias_is_num(&self, val: AliasVal) -> Result<u16, GenError> {
+    fn expect_alias_is_num(&self, val: SymbolVal) -> Result<u16, ParseError> {
         match val {
-            AliasVal::Num(v) => Ok(v),
-            _ => Err(format!("Expected a number")),
+            SymbolVal::Num(v) => Ok(v),
+            _ => Err(self.error(format!("Expected a number"))),
         }
     }
 
-    fn error(&self, message: impl Into<String>) -> GenError {
-        message.into()
+    fn unwrap_span<T>(&mut self, span: Span<T>) -> T {
+        self.curr_pos = span.pos;
+        span.val
+    }
+
+    fn error(&self, message: impl Into<String>) -> ParseError {
+        ParseError {
+            pos: self.curr_pos,
+            message: message.into(),
+        }
     }
 }

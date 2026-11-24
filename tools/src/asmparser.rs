@@ -1,6 +1,8 @@
 use crate::instr::{Addr, Instr};
 
 #[derive(Debug, PartialEq)]
+/// Call it `ParseError` for lack of a better name, it gets used almost everywhere
+/// TODO: rename and extract to a better place
 pub struct ParseError {
     pub pos: usize,
     pub message: String,

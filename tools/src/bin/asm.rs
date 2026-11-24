@@ -17,7 +17,7 @@ fn main() {
 
     let start = Instant::now();
     let x = AsmParser::new(&source);
-    let tokens = match x.parse() {
+    let instrs = match x.parse() {
         Ok(tokens) => tokens,
         Err(e) => return e.show(&source),
     };
@@ -30,7 +30,7 @@ fn main() {
         .open(format!("{}.ch8", output_path.to_str().unwrap()))
         .unwrap();
 
-    let labels = match Instr::gen_label_lookup(&tokens) {
+    let labels = match Instr::gen_label_lookup(&instrs) {
         Ok(l) => l,
         Err(errs) => {
             for err in errs {
@@ -42,8 +42,8 @@ fn main() {
 
     let mut total_bytes = 0;
 
-    for token in tokens {
-        let bytes = token.to_bytes(&labels);
+    for instr in instrs {
+        let bytes = instr.to_bytes(&labels);
         total_bytes += bytes.len();
         output_file.write(&bytes).unwrap();
     }

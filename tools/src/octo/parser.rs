@@ -1,14 +1,13 @@
 use crate::{
     asmparser::ParseError,
     octo::{
-        ast::{CompExpr, Decl, Stmt, Val},
+        ast::{CompExpr, Decl, Span, Stmt, Val},
         token::TType,
     },
 };
 
 use super::token::Token;
 
-type DeclResult = Result<Decl, ParseError>;
 type StmtResult = Result<Stmt, ParseError>;
 
 pub struct Parser {
@@ -21,7 +20,7 @@ impl Parser {
         Self { tokens, pos: 0 }
     }
 
-    pub fn parse(mut self) -> Result<Vec<Decl>, ParseError> {
+    pub fn parse(mut self) -> Result<Vec<Span<Decl>>, ParseError> {
         let mut out = Vec::new();
 
         while self.is_valid() {
@@ -31,29 +30,38 @@ impl Parser {
         Ok(out)
     }
 
-    fn decl(&mut self) -> DeclResult {
-        Ok(if self.consume(TType::Alias) {
+    fn decl(&mut self) -> Result<Span<Decl>, ParseError> {
+        let pos = self.peek().pos;
+        let decl = if self.consume(TType::Alias) {
             match self.advance().ttype {
                 TType::Ident(s) => Decl::Alias(s, self.val()?),
-                _ => return Err(self.error(format!("Expected name but got {}", self.peek().ttype))),
+                _ => {
+                    return Err(self.error(format!("Expected name but got {}", self.peek().ttype)));
+                }
             }
         } else if self.consume(TType::Const) {
             match self.advance().ttype {
                 TType::Ident(s) => Decl::Const(s, self.val()?),
-                _ => return Err(self.error(format!("Expected name but got {}", self.peek().ttype))),
+                _ => {
+                    return Err(self.error(format!("Expected name but got {}", self.peek().ttype)));
+                }
             }
         } else if self.consume(TType::Colon) {
             match self.advance().ttype {
                 TType::Ident(s) => Decl::Label(s),
-                _ => return Err(self.error(format!("Expected name but got {}", self.peek().ttype))),
+                _ => {
+                    return Err(self.error(format!("Expected name but got {}", self.peek().ttype)));
+                }
             }
         } else {
-            Decl::Stmt(self.stmt()?)
-        })
+            Decl::Stmt(self.stmt()?.val)
+        };
+        Ok(self.span(pos, decl))
     }
 
-    fn stmt(&mut self) -> StmtResult {
-        Ok(if self.consumes(&[TType::Return, TType::Semi]) {
+    fn stmt(&mut self) -> Result<Span<Stmt>, ParseError> {
+        let pos = self.peek().pos;
+        let stmt = if self.consumes(&[TType::Return, TType::Semi]) {
             Stmt::Return
         } else if self.consume(TType::Clear) {
             Stmt::Clear
@@ -79,7 +87,8 @@ impl Parser {
                 }
                 _ => self.assignment()?,
             }
-        })
+        };
+        Ok(self.span(pos, stmt))
     }
 
     fn if_stmt(&mut self) -> StmtResult {
@@ -93,7 +102,7 @@ impl Parser {
         let mut stmts = vec![];
         loop {
             let stmt = self.stmt()?;
-            let has_again = matches!(stmt, Stmt::Again);
+            let has_again = matches!(stmt.val, Stmt::Again);
             stmts.push(stmt);
             if has_again {
                 break;
@@ -161,28 +170,32 @@ impl Parser {
         })
     }
 
-    fn comparison(&mut self) -> Result<CompExpr, ParseError> {
+    fn comparison(&mut self) -> Result<Span<CompExpr>, ParseError> {
         let reg = self.val()?;
-        Ok(
-            if self.consumes(&[
-                TType::EqEq,
-                TType::NotEq,
-                TType::Greater,
-                TType::Less,
-                TType::GreaterEq,
-                TType::LessEq,
-            ]) {
-                let tok = self.prev();
-                CompExpr::BinaryExpr(reg, tok.ttype, self.val()?)
-            } else if self.consume(TType::Key) {
-                CompExpr::RegKey(reg)
-            } else if self.consume(TType::Minus) {
-                self.expect(TType::Key)?;
-                CompExpr::RegNotKey(reg)
-            } else {
-                return Err(self.error(format!("Unexpcted token {}", self.peek().ttype)));
-            },
-        )
+        let pos = self.peek().pos;
+        let comp_expr = if self.consumes(&[
+            TType::EqEq,
+            TType::NotEq,
+            TType::Greater,
+            TType::Less,
+            TType::GreaterEq,
+            TType::LessEq,
+        ]) {
+            let tok = self.prev();
+            CompExpr::BinaryExpr(reg, tok.ttype, self.val()?)
+        } else if self.consume(TType::Key) {
+            CompExpr::RegKey(reg)
+        } else if self.consume(TType::Minus) {
+            self.expect(TType::Key)?;
+            CompExpr::RegNotKey(reg)
+        } else {
+            return Err(self.error(format!("Unexpected token {}", self.peek().ttype)));
+        };
+        Ok(self.span(pos, comp_expr))
+    }
+
+    fn span<T>(&self, pos: usize, val: T) -> Span<T> {
+        Span { val, pos }
     }
 
     /// Return a `Val` type: Reg, Num, or Ident (for you to check later)

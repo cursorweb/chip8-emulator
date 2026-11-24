@@ -2,9 +2,10 @@ use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
     path::Path,
+    time::Instant,
 };
 
-use tools::octo::{Lexer, Parser};
+use tools::octo::{CodeGen, Lexer, Parser};
 
 fn main() {
     let file = std::env::args().nth(1).expect("Usage: asm <file>");
@@ -24,6 +25,7 @@ fn main() {
 
     output_file.write(b"").unwrap();
 
+    let start = Instant::now();
     let lexer = Lexer::new(&source);
     let out = lexer.lex();
 
@@ -38,13 +40,35 @@ fn main() {
     let parser = Parser::new(tokens);
     let ast = parser.parse();
 
-    match ast {
-        Ok(v) => println!("{v:#?}"),
+    let trees = match ast {
+        Ok(v) => v,
+        Err(e) => {
+            e.show(&source);
+            return;
+        }
+    };
+
+    let codegen = CodeGen::new(trees);
+
+    match codegen.gen_bytes() {
+        Ok(instrs) => {
+            let mut total_bytes = 0;
+
+            for instr in instrs {
+                // it's super easy to add labels...
+                // and ship your own...
+                // (todo)
+                let bytes = instr.to_bytes(&std::collections::HashMap::new());
+                total_bytes += bytes.len();
+                output_file.write(&bytes).unwrap();
+            }
+
+            println!(
+                "Assembled {total_bytes}/{} bytes in {:.2}secs",
+                0x1000 - 0x200,
+                start.elapsed().as_secs_f32()
+            );
+        }
         Err(e) => e.show(&source),
     }
-
-    // for token in tokens {
-    //     let bytes = token.to_bytes(&labels);
-    //     output_file.write(&bytes).unwrap();
-    // }
 }
