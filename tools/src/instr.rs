@@ -29,10 +29,12 @@ pub enum Instr {
     And(u8, u8),
     Xor(u8, u8),
     Add(u8, u8),
+    /// $0 = $0 - $1
     Subf(u8, u8),
     /// `srlf $0, $1` or for unused `srlf $0`
     /// This parser will support both, and `srlf $0` -> `srlf $0 $0`
     Srlf(u8, u8),
+    /// $0 = $1 - $0
     Subnf(u8, u8),
     /// See `srlf`
     Sllf(u8, u8),

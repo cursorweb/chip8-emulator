@@ -1,7 +1,7 @@
 use crate::{
     asmparser::ParseError,
     octo::{
-        ast::{Decl, Stmt, Val},
+        ast::{CompExpr, Decl, Stmt, Val},
         token::TType,
     },
 };
@@ -86,7 +86,7 @@ impl Parser {
         // TODO: we must finish the if statement for begin end
         let comp = self.comparison()?;
         self.expect(TType::Then)?;
-        Ok(Stmt::IfStmt(Box::new(comp)))
+        Ok(Stmt::IfStmt(comp))
     }
 
     fn loop_stmt(&mut self) -> StmtResult {
@@ -104,7 +104,7 @@ impl Parser {
 
     fn while_stmt(&mut self) -> StmtResult {
         let comp = self.comparison()?;
-        Ok(Stmt::WhileStmt(Box::new(comp)))
+        Ok(Stmt::WhileStmt(comp))
     }
 
     fn assignment(&mut self) -> StmtResult {
@@ -139,7 +139,7 @@ impl Parser {
                 } else if self.consume(TType::Key) {
                     Stmt::SetRegKey(left)
                 } else {
-                    Stmt::Binary(left, TType::AssignEq, self.val()?)
+                    Stmt::BinaryStmt(left, TType::AssignEq, self.val()?)
                 }
             } else if self.consumes(&[
                 TType::PlusEq,
@@ -151,7 +151,7 @@ impl Parser {
                 TType::ShrEq,
                 TType::ShlEq,
             ]) {
-                Stmt::Binary(left, self.prev().ttype, self.val()?)
+                Stmt::BinaryStmt(left, self.prev().ttype, self.val()?)
             } else {
                 return Err(self.error(format!(
                     "Unexpected token {} (trying to parse assignment)",
@@ -161,7 +161,7 @@ impl Parser {
         })
     }
 
-    fn comparison(&mut self) -> StmtResult {
+    fn comparison(&mut self) -> Result<CompExpr, ParseError> {
         let reg = self.val()?;
         Ok(
             if self.consumes(&[
@@ -173,12 +173,12 @@ impl Parser {
                 TType::LessEq,
             ]) {
                 let tok = self.prev();
-                Stmt::Binary(reg, tok.ttype, self.val()?)
+                CompExpr::BinaryExpr(reg, tok.ttype, self.val()?)
             } else if self.consume(TType::Key) {
-                Stmt::RegKey(reg)
+                CompExpr::RegKey(reg)
             } else if self.consume(TType::Minus) {
                 self.expect(TType::Key)?;
-                Stmt::RegNotKey(reg)
+                CompExpr::RegNotKey(reg)
             } else {
                 return Err(self.error(format!("Unexpcted token {}", self.peek().ttype)));
             },

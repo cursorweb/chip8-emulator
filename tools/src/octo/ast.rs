@@ -29,6 +29,7 @@ pub enum Stmt {
     Clear,
     /// `bcd reg`, etc.
     UnaryStmt(TType, Val),
+    /// `draw vx vy n`
     Sprite(Val, Val, Val),
     Again,
 
@@ -50,25 +51,30 @@ pub enum Stmt {
     /// `reg := key`
     SetRegKey(Val),
     /// `reg := num` or `reg += num`
-    /// also `reg == num`
     /// check validation during assembly time based on type
-    Binary(Val, TType, Val),
+    BinaryStmt(Val, TType, Val),
 
     // control flow
-    /// if expr then
-    IfStmt(Box<Stmt>),
+    /// if <comparison> then
+    IfStmt(CompExpr),
     /// "if" expr "begin" stmt* ( "else" stmt* )? "end"
-    IfStmtBlock(Box<Stmt>, Vec<Stmt>, Option<Vec<Decl>>),
+    /// TODO: implement
+    IfStmtBlock(CompExpr, Vec<Stmt>, Option<Vec<Decl>>),
     /// "loop" stmt* "again" (again MUST be the last stmt)
     LoopStmt(Vec<Stmt>),
-    WhileStmt(Box<Stmt>),
+    WhileStmt(CompExpr),
 
-    // comparison
+    /// 0x67 word is 2 bytes
+    Literal(u16),
+}
+
+/// Comparisons that act like an 'abstraction' and aren't real instructions
+#[derive(Debug)]
+pub enum CompExpr {
+    /// reg == num, reg != num, etc.
+    BinaryExpr(Val, TType, Val),
     /// if v0 key
     RegKey(Val),
     /// if v0 -key
     RegNotKey(Val),
-
-    /// 0x67 word is 2 bytes
-    Literal(u16),
 }
