@@ -4,12 +4,10 @@ use crate::{
     asmparser::ParseError,
     instr::{Addr, Instr},
     octo::{
-        ast::{CompExpr, Decl, Span, Stmt},
+        ast::{CompExpr, Decl, Span, Stmt, Val},
         token::TType,
     },
 };
-
-use super::ast::Val;
 
 /// Aliases/Consts/Addys all get put into the same
 /// lookup table
@@ -20,7 +18,6 @@ pub enum SymbolVal {
     Addr(u16),
 }
 
-/// TODO: add a forward pass to resolve things like loops, agains, whiles, as well as labels
 pub struct CodeGen {
     trees: Vec<Span<Decl>>,
     symbols: HashMap<String, SymbolVal>,
@@ -60,7 +57,7 @@ impl CodeGen {
             }
             Decl::Alias(_, _) => {}
             Decl::Const(_, _) => {}
-            Decl::Label(_) => {}
+            Decl::Label(name) => self.emit(Instr::Label(name)),
         }
 
         Ok(())
@@ -154,11 +151,12 @@ impl CodeGen {
     fn if_stmt(&mut self, comp: Span<CompExpr>) -> Result<Instr, ParseError> {
         let comp = self.unwrap_span(comp);
         Ok(match comp {
+            // NOTE: if statements translate to skip if, so invert the condition
             CompExpr::BinaryExpr(left, ttype, right) => {
                 let left = self.resolve_reg(left)?;
                 match ttype {
-                    TType::EqEq => self.resolve_binary(left, right, Instr::Seq, Instr::Seqi)?,
-                    TType::NotEq => self.resolve_binary(left, right, Instr::Sne, Instr::Snei)?,
+                    TType::EqEq => self.resolve_binary(left, right, Instr::Sne, Instr::Snei)?,
+                    TType::NotEq => self.resolve_binary(left, right, Instr::Seq, Instr::Seqi)?,
                     TType::Greater => todo!(),
                     TType::Less => todo!(),
                     TType::GreaterEq => todo!(),
@@ -166,8 +164,8 @@ impl CodeGen {
                     _ => unreachable!("Shouldn't be able to reach {ttype}"),
                 }
             }
-            CompExpr::RegKey(val) => Instr::Sk(self.resolve_reg(val)?),
-            CompExpr::RegNotKey(val) => Instr::Snk(self.resolve_reg(val)?),
+            CompExpr::RegKey(val) => Instr::Snk(self.resolve_reg(val)?),
+            CompExpr::RegNotKey(val) => Instr::Sk(self.resolve_reg(val)?),
         })
     }
 

@@ -5,16 +5,16 @@ use std::{
     time::Instant,
 };
 
-use tools::octo::{CodeGen, Lexer, Parser, Resolver};
+use tools::octo::{CodeGen, Lexer, Parser, Resolver, org_asm};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    let emit_asm = args.contains(&"-S".to_string());
+    let emit_asm = args.contains(&"-s".to_string());
     let file = args
         .iter()
         .find(|arg| !arg.starts_with('-'))
-        .expect("Usage: asm [-S] <file>");
+        .expect("Usage: octo [-s] <file>");
 
     let mut source = String::new();
     File::open(file.clone())
@@ -69,6 +69,17 @@ fn main() {
     match codegen.gen_bytes() {
         Ok(instrs) => {
             let mut total_bytes = 0;
+
+            if emit_asm {
+                let asm_file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(format!("{}.s", output_path.to_str().unwrap()))
+                    .unwrap();
+                org_asm(&instrs, asm_file);
+                println!("Emitted asm file ({} instrs)", instrs.len());
+            }
 
             for instr in instrs {
                 // it's super easy to add labels...

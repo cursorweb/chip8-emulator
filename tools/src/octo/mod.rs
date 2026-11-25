@@ -1,12 +1,11 @@
 mod ast;
 mod codegen;
-mod codegen_asm;
 mod lexer;
 mod parser;
 mod resolver;
 mod token;
-pub use codegen::CodeGen;
-pub use codegen_asm::gen_asm;
+pub use codegen::gen_asm::org_asm;
+pub use codegen::gen_instr::CodeGen;
 pub use lexer::Lexer;
 pub use parser::Parser;
 pub use resolver::Resolver;
