@@ -54,13 +54,35 @@ impl<'a> Resolver<'a> {
     /// Returns (symbols, stmt_addrs)
     pub fn resolve(
         mut self,
-    ) -> Result<(HashMap<String, SymbolVal>, HashMap<usize, u16>), ParseError> {
+    ) -> Result<(HashMap<String, SymbolVal>, HashMap<usize, u16>, Option<u16>), ParseError> {
         for decl in self.trees {
             let decl = self.unwrap_span(decl);
             self.decl(decl)?;
         }
 
-        Ok((self.symbols, self.stmt_addrs))
+        let Some(SymbolVal::Addr(main_label)) = self.symbols.get("main").copied() else {
+            debug_assert_matches!(self.symbols.get("main"), None);
+            return Err(self.error("Program needs a main label"));
+        };
+
+        let main_addr = if main_label != 0x200 {
+            // need to add a jump statement to main at the start, so shift everything by 2:
+            for val in self.symbols.values_mut() {
+                if let SymbolVal::Addr(addr) = val {
+                    *addr += 2;
+                }
+            }
+
+            for addr in self.stmt_addrs.values_mut() {
+                *addr += 2;
+            }
+
+            Some(main_label + 2)
+        } else {
+            None
+        };
+
+        Ok((self.symbols, self.stmt_addrs, main_addr))
     }
 
     fn decl(&mut self, decl: &Decl) -> Result<(), ParseError> {

@@ -11,7 +11,7 @@ use crate::{
 
 /// Aliases/Consts/Addys all get put into the same
 /// lookup table
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum SymbolVal {
     Reg(u8),
     Num(u16),
@@ -25,12 +25,18 @@ pub struct CodeGen {
     out: Vec<Instr>,
     /// Current "line info" of the AST node being looked at
     curr_pos: usize,
+    /// Needs jump if label main isn't at addr 0x200
+    main_addr: Option<u16>,
 }
 
 impl CodeGen {
     pub fn new(
         trees: Vec<Span<Decl>>,
-        (symbols, stmt_addrs): (HashMap<String, SymbolVal>, HashMap<usize, u16>),
+        (symbols, stmt_addrs, main_addr): (
+            HashMap<String, SymbolVal>,
+            HashMap<usize, u16>,
+            Option<u16>,
+        ),
     ) -> Self {
         Self {
             trees,
@@ -38,10 +44,15 @@ impl CodeGen {
             stmt_addrs,
             out: vec![],
             curr_pos: 0,
+            main_addr,
         }
     }
 
     pub fn gen_bytes(mut self) -> Result<Vec<Instr>, ParseError> {
+        if let Some(main_addr) = self.main_addr {
+            self.emit(Instr::J(Addr::Val(main_addr)));
+        }
+
         for decl in std::mem::take(&mut self.trees) {
             let decl = self.unwrap_span(decl);
             self.decl(decl)?;
