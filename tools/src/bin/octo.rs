@@ -5,10 +5,17 @@ use std::{
     time::Instant,
 };
 
-use tools::octo::{CodeGen, Lexer, Parser};
+use tools::octo::{CodeGen, Lexer, Parser, Resolver};
 
 fn main() {
-    let file = std::env::args().nth(1).expect("Usage: asm <file>");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    let emit_asm = args.contains(&"-S".to_string());
+    let file = args
+        .iter()
+        .find(|arg| !arg.starts_with('-'))
+        .expect("Usage: asm [-S] <file>");
+
     let mut source = String::new();
     File::open(file.clone())
         .unwrap()
@@ -48,7 +55,16 @@ fn main() {
         }
     };
 
-    let codegen = CodeGen::new(trees);
+    let resolver = Resolver::new(&trees);
+    let data = match resolver.resolve() {
+        Ok(data) => data,
+        Err(e) => {
+            e.show(&source);
+            return;
+        }
+    };
+
+    let codegen = CodeGen::new(trees, data);
 
     match codegen.gen_bytes() {
         Ok(instrs) => {
@@ -71,4 +87,6 @@ fn main() {
         }
         Err(e) => e.show(&source),
     }
+
+    if emit_asm {}
 }

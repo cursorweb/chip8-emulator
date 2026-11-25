@@ -54,7 +54,7 @@ impl Parser {
                 }
             }
         } else {
-            Decl::Stmt(self.stmt()?.val)
+            Decl::Stmt(self.stmt()?)
         };
         Ok(self.span(pos, decl))
     }
@@ -83,7 +83,10 @@ impl Parser {
             match self.peek().ttype {
                 TType::Number(n) => {
                     self.advance();
-                    Stmt::Literal(n)
+                    Stmt::Literal(
+                        n.try_into()
+                            .map_err(|_| self.error("Number exceeds a byte"))?,
+                    )
                 }
                 _ => self.assignment()?,
             }

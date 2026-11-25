@@ -258,8 +258,13 @@ impl<'a> Lexer<'a> {
 
         let text = &self.input[digit_start..self.pos];
 
-        let number = u16::from_str_radix(text, base)
-            .map_err(|_| self.error("Number does not fit in u16"))?;
+        let number =
+            u16::from_str_radix(text, base).map_err(|_| self.error("Number exceeds 12 bits"))?;
+
+        if number > 0xFFF {
+            return Err(self.error("Number exceeds 12 bits"));
+        }
+
         if negative {
             if number > u8::MAX as u16 {
                 Err(self.error("Negative number would overflow"))

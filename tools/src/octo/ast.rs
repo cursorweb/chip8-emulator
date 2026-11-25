@@ -26,7 +26,7 @@ pub enum Decl {
     /// :const pi 3
     Const(String, Val),
     Label(String),
-    Stmt(Stmt),
+    Stmt(Span<Stmt>),
 }
 
 #[derive(Debug)]
@@ -34,7 +34,7 @@ pub enum Stmt {
     // Instructions
     Return,
     Clear,
-    /// `bcd reg`, etc.
+    /// `bcd reg`, `save`, `load`, `j`, `j0`
     UnaryStmt(TType, Val),
     /// `draw vx vy n`
     Sprite(Val, Val, Val),
@@ -71,8 +71,8 @@ pub enum Stmt {
     LoopStmt(Vec<Span<Stmt>>),
     WhileStmt(Span<CompExpr>),
 
-    /// 0x67 word is 2 bytes
-    Literal(u16),
+    /// 0x67 MUST be a byte
+    Literal(u8),
 }
 
 /// Comparisons that act like an 'abstraction' and aren't real instructions
