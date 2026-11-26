@@ -1,0 +1,70 @@
+:alias zero v0
+:alias ballx v1
+:alias bally v2
+:alias velx v3
+:alias vely v4
+:alias px v5
+:alias py v6
+:alias ox v7
+:alias oy v8
+
+:const WIDTH 63
+:const HEIGHT 31
+
+: main
+    zero := 0
+    ballx := 31
+    bally := 15
+
+    px := 3
+    py := 15
+    ox := -3
+    oy := 15
+
+    i := dot
+
+    velx := random 1
+    if velx == 0 then velx := -1
+    vely := random 1
+    if vely == 0 then vely := -1
+
+    loop
+        cls
+        sprite px py 4
+        sprite ox oy 4
+
+        sprite ballx bally 1
+        
+        ### ball movement and collision
+        # velx = zero - velx
+        if vf == 1 then velx =- zero
+
+        ballx += velx
+        bally += vely
+
+        if ballx == WIDTH then velx =- zero
+        if bally == HEIGHT then vely =- zero
+        if ballx == 0 then velx =- zero
+        if bally == 0 then vely =- zero
+        
+        ### player movement
+        vf := OCTO_KEY_W if vf key then py += -1
+        vf := OCTO_KEY_S if vf key then py += 1
+
+        vf := random 0b00000001
+        if vf != 1 then oy += vely
+
+        # lock the framerate of this program via the delay timer:
+        loop
+            vf := delay
+            if vf != 0 then
+        again
+        vf := 3
+        delay := vf
+    again
+
+: dot
+    0x80
+    0x80
+    0x80
+    0x80
